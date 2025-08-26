@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ExternalLink, Code, Database, Tag, Plus, Play, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { ExternalLink, Code, Database, Tag, Plus, Play, Shield, CheckCircle, XCircle, Key } from 'lucide-react';
 import { Feature } from '@/types/Feature';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,7 +20,14 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   const { addItem } = useCart();
   const { toast } = useToast();
   const [tryItInput, setTryItInput] = useState('');
-  const [simulationResult, setSimulationResult] = useState<{ status: 'passed' | 'blocked' | null }>({ status: null });
+  const [apiKey, setApiKey] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<{ 
+    status: 'passed' | 'blocked' | null;
+    redactedText?: string;
+    entities?: Array<{ type: string; text: string; start: number; end: number }>;
+    error?: string;
+  }>({ status: null });
 
   const handleAddToCart = () => {
     addItem(feature);
@@ -30,27 +38,84 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
     onClose();
   };
 
-  const handleSimulate = () => {
-    // Simple simulation logic for demo purposes
-    const isModeration = feature.category.includes('Moderation') || feature.category.includes('Safety');
-    const isBanList = feature.name.toLowerCase().includes('bias') || feature.name.toLowerCase().includes('ban');
-    
-    if (isModeration || isBanList) {
-      // Simple heuristic: check for common unsafe patterns
-      const input = tryItInput.toLowerCase();
-      const unsafePatterns = ['harm', 'violence', 'hate', 'attack', '****', 'kill', 'destroy'];
-      const hasUnsafeContent = unsafePatterns.some(pattern => input.includes(pattern));
-      
-      setSimulationResult({ status: hasUnsafeContent ? 'blocked' : 'passed' });
-    } else {
-      // For other features, assume they pass
-      setSimulationResult({ status: 'passed' });
-    }
-
-    toast({
-      title: "Simulation Complete",
-      description: `Feature ${feature.name} simulation executed successfully.`,
+  const detectPII = async (text: string) => {
+    const response = await fetch('http://localhost:8000/validate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ text })
     });
+    return response.json();
+  };
+
+  const handleSimulate = async () => {
+    setIsLoading(true);
+    setSimulationResult({ status: null });
+
+    try {
+      // Check if this is PII Protection feature
+      if (feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) {
+        if (!apiKey.trim()) {
+          setSimulationResult({ 
+            status: 'blocked', 
+            error: 'API key is required for PII Protection' 
+          });
+          toast({
+            title: "API Key Required",
+            description: "Please enter your API key to test PII Protection.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        try {
+          const result = await detectPII(tryItInput);
+          setSimulationResult({
+            status: result.entities?.length > 0 ? 'blocked' : 'passed',
+            redactedText: result.redacted_text,
+            entities: result.entities
+          });
+          
+          toast({
+            title: "PII Detection Complete",
+            description: `Found ${result.entities?.length || 0} PII entities.`,
+          });
+        } catch (error) {
+          setSimulationResult({ 
+            status: 'blocked', 
+            error: 'Failed to connect to PII service. Make sure the service is running on localhost:8000.' 
+          });
+          toast({
+            title: "Service Error",
+            description: "Could not connect to PII detection service.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        // Simple simulation logic for other features
+        const isModeration = feature.category.includes('Moderation') || feature.category.includes('Safety');
+        const isBanList = feature.name.toLowerCase().includes('bias') || feature.name.toLowerCase().includes('ban');
+        
+        if (isModeration || isBanList) {
+          const input = tryItInput.toLowerCase();
+          const unsafePatterns = ['harm', 'violence', 'hate', 'attack', '****', 'kill', 'destroy'];
+          const hasUnsafeContent = unsafePatterns.some(pattern => input.includes(pattern));
+          
+          setSimulationResult({ status: hasUnsafeContent ? 'blocked' : 'passed' });
+        } else {
+          setSimulationResult({ status: 'passed' });
+        }
+
+        toast({
+          title: "Simulation Complete",
+          description: `Feature ${feature.name} simulation executed successfully.`,
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getCategoryColor = (category: string) => {
@@ -146,6 +211,26 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               Try It
             </h3>
             <div className="space-y-4">
+              {/* API Key input for PII Protection */}
+              {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    API Key
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="Enter your API key (e.g., supersecret123)"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Required for connecting to the PII detection service
+                  </p>
+                </div>
+              )}
+              
               <div>
                 <label className="text-sm font-medium mb-2 block">Test Input</label>
                 <Textarea
@@ -159,12 +244,12 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               <div className="flex items-center gap-3">
                 <Button 
                   onClick={handleSimulate} 
-                  disabled={!tryItInput.trim()}
+                  disabled={!tryItInput.trim() || isLoading}
                   variant="outline"
                   className="flex items-center gap-2"
                 >
                   <Shield className="h-4 w-4" />
-                  Simulate
+                  {isLoading ? 'Testing...' : 'Simulate'}
                 </Button>
                 
                 {simulationResult.status && (
@@ -177,13 +262,47 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                     ) : (
                       <CheckCircle className="h-3 w-3" />
                     )}
-                    {simulationResult.status === 'blocked' ? 'Blocked' : 'Passed'}
+                    {simulationResult.status === 'blocked' ? 'PII Detected' : 'Clean'}
                   </Badge>
                 )}
               </div>
               
+              {/* PII Detection Results */}
+              {simulationResult.redactedText && (
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Redacted Text</label>
+                    <div className="bg-background p-3 rounded border font-mono text-sm">
+                      {simulationResult.redactedText}
+                    </div>
+                  </div>
+                  
+                  {simulationResult.entities && simulationResult.entities.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Detected Entities</label>
+                      <div className="flex flex-wrap gap-2">
+                        {simulationResult.entities.map((entity, index) => (
+                          <Badge key={index} variant="destructive" className="text-xs">
+                            {entity.type}: {entity.text}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {simulationResult.error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
+                  {simulationResult.error}
+                </div>
+              )}
+              
               <p className="text-xs text-muted-foreground">
-                * This is a demo simulation for UX purposes only. Actual implementation would use the specified repository dependency.
+                {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) 
+                  ? '* This connects to your real PII detection service running on localhost:8000'
+                  : '* This is a demo simulation for UX purposes only. Actual implementation would use the specified repository dependency.'
+                }
               </p>
             </div>
           </div>
