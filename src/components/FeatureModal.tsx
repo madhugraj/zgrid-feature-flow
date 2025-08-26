@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink, Code, Database, Tag, Plus, Play, Shield, CheckCircle, XCircle, Key } from 'lucide-react';
 import { Feature } from '@/types/Feature';
 import { Button } from '@/components/ui/button';
@@ -364,10 +365,17 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             <div>
               <h4 className="font-semibold mb-3">Reference Documentation</h4>
               <Button variant="outline" size="sm" asChild>
-                <a href={feature.referenceLink} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Documentation
-                </a>
+                {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) ? (
+                  <Link to="/docs/pii-protection">
+                    <Code className="h-4 w-4 mr-2" />
+                    View Documentation
+                  </Link>
+                ) : (
+                  <a href={feature.referenceLink} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View Documentation
+                  </a>
+                )}
               </Button>
             </div>
           </div>
