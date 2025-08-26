@@ -2,41 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Z-Grid Design System - Modern Feature Marketplace */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    /* Core Brand Colors */
+    --background: 250 100% 99%;
+    --foreground: 250 15% 11%;
+    
+    /* Brand Purple/Violet System */
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 262 100% 75%;
+    
+    /* Modern Accent System */
+    --secondary: 180 100% 85%;
+    --secondary-foreground: 180 100% 15%;
+    --accent: 45 100% 70%;
+    --accent-foreground: 45 100% 15%;
+    
+    /* Neutral System */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 250 15% 11%;
+    --muted: 250 20% 96%;
+    --muted-foreground: 250 10% 45%;
+    
+    /* Interactive Elements */
+    --border: 250 20% 90%;
+    --input: 250 20% 95%;
+    --ring: 262 83% 58%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
+    --popover-foreground: 250 15% 11%;
+    
+    /* Status Colors */
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --warning: 38 92% 50%;
+    
+    /* Design System Variables */
+    --radius: 0.75rem;
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--accent)));
+    --gradient-background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(250 50% 98%) 100%);
+    --shadow-soft: 0 4px 20px -4px hsl(var(--primary) / 0.1);
+    --shadow-medium: 0 8px 30px -8px hsl(var(--primary) / 0.15);
+    --shadow-strong: 0 20px 40px -12px hsl(var(--primary) / 0.25);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --glass-bg: hsl(0 0% 100% / 0.8);
+    --glass-border: hsl(250 20% 90% / 0.5);
 
     --sidebar-background: 0 0% 98%;
 
@@ -101,5 +115,47 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    background: var(--gradient-background);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* Glass Card Effect */
+  .glass-card {
+    @apply backdrop-blur-md;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-soft);
+  }
+  
+  /* Gradient Button */
+  .btn-gradient {
+    background: var(--gradient-primary);
+    transition: var(--transition-smooth);
+    @apply shadow-lg hover:shadow-xl hover:scale-105;
+  }
+  
+  /* Feature Card Hover Effect */
+  .feature-card {
+    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-xl;
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .feature-card:hover {
+    box-shadow: var(--shadow-medium);
+  }
+  
+  /* Search Input Enhancement */
+  .search-input {
+    @apply backdrop-blur-sm;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    transition: var(--transition-smooth);
+  }
+  
+  .search-input:focus {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+    border-color: hsl(var(--primary));
   }
 }
