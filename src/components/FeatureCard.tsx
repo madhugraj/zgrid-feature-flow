@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ExternalLink, Plus, Code, Tag, Database } from 'lucide-react';
 import { Feature } from '@/types/Feature';
 import { Button } from '@/components/ui/button';
@@ -6,14 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
-import { FeatureModal } from './FeatureModal';
 
 interface FeatureCardProps {
   feature: Feature;
+  onFeatureClick?: (feature: Feature) => void;
 }
 
-export function FeatureCard({ feature }: FeatureCardProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
   const { addItem } = useCart();
   const { toast } = useToast();
 
@@ -54,11 +52,10 @@ export function FeatureCard({ feature }: FeatureCardProps) {
   };
 
   return (
-    <>
-      <Card 
-        className="h-full feature-card cursor-pointer glass-card border-0 hover:border-primary/20"
-        onClick={() => setIsModalOpen(true)}
-      >
+    <Card 
+      className="h-full feature-card cursor-pointer glass-card border-0 hover:border-primary/20"
+      onClick={() => onFeatureClick?.(feature)}
+    >
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
@@ -141,12 +138,5 @@ export function FeatureCard({ feature }: FeatureCardProps) {
           </div>
         </CardContent>
       </Card>
-
-      <FeatureModal 
-        feature={feature}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
-    </>
   );
 }

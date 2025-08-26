@@ -1,16 +1,59 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Grid3X3, Filter } from 'lucide-react';
 import { mockFeatures } from '@/data/mockFeatures';
 import { Feature } from '@/types/Feature';
 import { FeatureCard } from '@/components/FeatureCard';
+import { FeatureModal } from '@/components/FeatureModal';
 import { Navbar } from '@/components/Navbar';
 import { Cart } from '@/components/Cart';
+import { QAPanel } from '@/components/QAPanel';
 import { useCart } from '@/hooks/useCart';
 
 export default function Home() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => {
+    return localStorage.getItem('z-grid-search') || '';
+  });
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    return localStorage.getItem('z-grid-category') || 'All Categories';
+  });
+  const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { isOpen: isCartOpen, toggleCart } = useCart();
+
+  // Persist search and category to localStorage
+  useEffect(() => {
+    localStorage.setItem('z-grid-search', searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    localStorage.setItem('z-grid-category', selectedCategory);
+  }, [selectedCategory]);
+
+  // Handle deep linking
+  useEffect(() => {
+    const featureCode = searchParams.get('feature');
+    if (featureCode) {
+      const feature = mockFeatures.find(f => f.featureCode === featureCode);
+      if (feature) {
+        setSelectedFeature(feature);
+        setIsModalOpen(true);
+      }
+    }
+  }, [searchParams]);
+
+  const handleFeatureClick = (feature: Feature) => {
+    setSelectedFeature(feature);
+    setIsModalOpen(true);
+    setSearchParams({ feature: feature.featureCode });
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedFeature(null);
+    setSearchParams({});
+  };
 
   const filteredFeatures = useMemo(() => {
     return mockFeatures.filter((feature: Feature) => {
@@ -90,7 +133,11 @@ export default function Home() {
         {filteredFeatures.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredFeatures.map((feature) => (
-              <FeatureCard key={feature.featureCode} feature={feature} />
+              <FeatureCard 
+                key={feature.featureCode} 
+                feature={feature} 
+                onFeatureClick={handleFeatureClick}
+              />
             ))}
           </div>
         ) : (
@@ -118,6 +165,16 @@ export default function Home() {
       </main>
 
       <Cart isOpen={isCartOpen} onClose={toggleCart} />
+      
+      {selectedFeature && (
+        <FeatureModal
+          feature={selectedFeature}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+        />
+      )}
+
+      <QAPanel />
     </div>
   );
 }

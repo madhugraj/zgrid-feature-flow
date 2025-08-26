@@ -1,9 +1,11 @@
-import { ExternalLink, Code, Database, Tag, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { ExternalLink, Code, Database, Tag, Plus, Play, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { Feature } from '@/types/Feature';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +18,8 @@ interface FeatureModalProps {
 export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   const { addItem } = useCart();
   const { toast } = useToast();
+  const [tryItInput, setTryItInput] = useState('');
+  const [simulationResult, setSimulationResult] = useState<{ status: 'passed' | 'blocked' | null }>({ status: null });
 
   const handleAddToCart = () => {
     addItem(feature);
@@ -24,6 +28,29 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
       description: `${feature.name} has been added to your collection.`,
     });
     onClose();
+  };
+
+  const handleSimulate = () => {
+    // Simple simulation logic for demo purposes
+    const isModeration = feature.category.includes('Moderation') || feature.category.includes('Safety');
+    const isBanList = feature.name.toLowerCase().includes('bias') || feature.name.toLowerCase().includes('ban');
+    
+    if (isModeration || isBanList) {
+      // Simple heuristic: check for common unsafe patterns
+      const input = tryItInput.toLowerCase();
+      const unsafePatterns = ['harm', 'violence', 'hate', 'attack', '****', 'kill', 'destroy'];
+      const hasUnsafeContent = unsafePatterns.some(pattern => input.includes(pattern));
+      
+      setSimulationResult({ status: hasUnsafeContent ? 'blocked' : 'passed' });
+    } else {
+      // For other features, assume they pass
+      setSimulationResult({ status: 'passed' });
+    }
+
+    toast({
+      title: "Simulation Complete",
+      description: `Feature ${feature.name} simulation executed successfully.`,
+    });
   };
 
   const getCategoryColor = (category: string) => {
@@ -107,6 +134,57 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                   {feature.exampleOutput}
                 </pre>
               </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Try It Playground */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Play className="h-5 w-5" />
+              Try It
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Test Input</label>
+                <Textarea
+                  placeholder="Enter text to test this feature..."
+                  value={tryItInput}
+                  onChange={(e) => setTryItInput(e.target.value)}
+                  className="min-h-[100px]"
+                />
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Button 
+                  onClick={handleSimulate} 
+                  disabled={!tryItInput.trim()}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  Simulate
+                </Button>
+                
+                {simulationResult.status && (
+                  <Badge 
+                    variant={simulationResult.status === 'blocked' ? 'destructive' : 'default'}
+                    className="flex items-center gap-1"
+                  >
+                    {simulationResult.status === 'blocked' ? (
+                      <XCircle className="h-3 w-3" />
+                    ) : (
+                      <CheckCircle className="h-3 w-3" />
+                    )}
+                    {simulationResult.status === 'blocked' ? 'Blocked' : 'Passed'}
+                  </Badge>
+                )}
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                * This is a demo simulation for UX purposes only. Actual implementation would use the specified repository dependency.
+              </p>
             </div>
           </div>
 

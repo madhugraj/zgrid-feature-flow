@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ShoppingCart, Menu, Grid3X3, Settings } from 'lucide-react';
+import { Search, ShoppingCart, Menu, Grid3X3 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useCart } from '@/hooks/useCart';
 
 interface NavbarProps {
@@ -120,20 +121,23 @@ export function Navbar({ onSearchChange, onCategoryChange, onCartToggle }: Navba
             </Select>
           </div>
 
-          {/* Cart Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCartToggle}
-            className="relative glass-card border-0 hover:bg-primary/10"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            {totalItems > 0 && (
-              <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
-                {totalItems}
-              </Badge>
-            )}
-          </Button>
+          {/* Theme Toggle & Cart */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCartToggle}
+              className="relative glass-card border-0 hover:bg-primary/10"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {totalItems > 0 && (
+                <Badge variant="secondary" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
+                  {totalItems}
+                </Badge>
+              )}
+            </Button>
+          </div>
 
           {/* Mobile Menu */}
           <Button variant="ghost" size="sm" className="md:hidden">
