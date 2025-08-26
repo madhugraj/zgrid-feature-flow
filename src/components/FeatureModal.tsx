@@ -22,14 +22,27 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
   const getCategoryColor = (category: string) => {
     const colors = {
-      'Text Validation': 'bg-blue-100 text-blue-800',
-      'Content Safety': 'bg-red-100 text-red-800',
-      'Data Validation': 'bg-green-100 text-green-800',
-      'Security': 'bg-yellow-100 text-yellow-800',
-      'Privacy': 'bg-purple-100 text-purple-800',
-      'Code Analysis': 'bg-indigo-100 text-indigo-800',
-      'Text Processing': 'bg-cyan-100 text-cyan-800',
-      'Text Analysis': 'bg-pink-100 text-pink-800',
+      'Privacy / Leakage': 'bg-purple-100 text-purple-800',
+      'Safety / Security': 'bg-red-100 text-red-800',
+      'Safety / Moderation': 'bg-orange-100 text-orange-800',
+      'Safety / Fairness': 'bg-yellow-100 text-yellow-800',
+      'Safety / Quality': 'bg-cyan-100 text-cyan-800',
+      'Input Validation': 'bg-green-100 text-green-800',
+      'Formatting / Usability': 'bg-blue-100 text-blue-800',
+      'Formatting / Language': 'bg-indigo-100 text-indigo-800',
+      'Factuality / Language': 'bg-teal-100 text-teal-800',
+      'Factuality / Reasoning': 'bg-emerald-100 text-emerald-800',
+      'Summarization / RAG': 'bg-violet-100 text-violet-800',
+      'Relevance / QA': 'bg-rose-100 text-rose-800',
+      'Relevance / RAG': 'bg-pink-100 text-pink-800',
+      'Provenance / RAG': 'bg-amber-100 text-amber-800',
+      'Originality / Citation': 'bg-lime-100 text-lime-800',
+      'Relevance / Custom QA': 'bg-sky-100 text-sky-800',
+      'Relevance / Scope': 'bg-slate-100 text-slate-800',
+      'Security / Agents': 'bg-zinc-100 text-zinc-800',
+      'Conversational Safety': 'bg-stone-100 text-stone-800',
+      'Security / Leakage': 'bg-neutral-100 text-neutral-800',
+      'Testing / QA': 'bg-gray-100 text-gray-800',
     };
     return colors[category as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };

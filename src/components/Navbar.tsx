@@ -21,14 +21,27 @@ interface NavbarProps {
 
 const categories = [
   'All Categories',
-  'Text Validation',
-  'Content Safety', 
-  'Data Validation',
-  'Security',
-  'Privacy',
-  'Code Analysis',
-  'Text Processing',
-  'Text Analysis'
+  'Privacy / Leakage',
+  'Safety / Security', 
+  'Safety / Moderation',
+  'Safety / Fairness',
+  'Safety / Quality',
+  'Input Validation',
+  'Formatting / Usability',
+  'Formatting / Language',
+  'Factuality / Language',
+  'Factuality / Reasoning',
+  'Summarization / RAG',
+  'Relevance / QA',
+  'Relevance / RAG',
+  'Provenance / RAG',
+  'Originality / Citation',
+  'Relevance / Custom QA',
+  'Relevance / Scope',
+  'Security / Agents',
+  'Conversational Safety',
+  'Security / Leakage',
+  'Testing / QA'
 ];
 
 export function Navbar({ onSearchChange, onCategoryChange, onCartToggle }: NavbarProps) {
