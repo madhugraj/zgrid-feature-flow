@@ -1,125 +1,131 @@
-import { useState } from 'react';
-import { Download, FileText, Code, Layers } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ExternalLink, Download, Copy, FileText, Grid, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Navbar } from '@/components/Navbar';
 import { Cart } from '@/components/Cart';
 import { useCart } from '@/hooks/useCart';
+import { useToast } from '@/hooks/use-toast';
+import * as yaml from 'js-yaml';
+
+const ALL_INPUT_TYPES = ['text', 'messages', 'document', 'json', 'sql', 'code'];
+const OUTPUT_PLACEHOLDERS = [
+  'validated_json',
+  'cleaned_text', 
+  'guarded_reply',
+  'evaluation_report',
+  'safe_text',
+  'moderated_text',
+  'validated_input',
+  'bounded_text',
+  'normalized_text',
+  'validated_summary',
+  'validated_answer',
+  'relevant_context',
+  'provenance_report',
+  'original_text',
+  'qa_score',
+  'scoped_text',
+  'safe_action'
+];
 
 export default function Collection() {
-  const { items, isOpen: isCartOpen, toggleCart, totalItems } = useCart();
+  const { items, isOpen: isCartOpen, toggleCart } = useCart();
+  const { toast } = useToast();
+  
+  // Get union of all selected features' standard inputs
+  const allSelectedInputs = useMemo(() => {
+    return [...new Set(items.flatMap(item => item.feature.standardInputs))];
+  }, [items]);
 
-  const handleGenerateCode = () => {
-    const codeTemplate = `# Z-Grid Feature Collection
-# Generated on ${new Date().toLocaleString()}
+  const [selectedInputs, setSelectedInputs] = useState<string[]>(allSelectedInputs);
+  const [defaultOutput, setDefaultOutput] = useState('validated_json');
+  const [autoWireDefaults, setAutoWireDefaults] = useState(true);
+  const [collectionName, setCollectionName] = useState('Z-Grid Selection');
 
-import json
-from typing import Dict, List, Any
+  // Update selected inputs when cart changes
+  useMemo(() => {
+    setSelectedInputs(allSelectedInputs);
+  }, [allSelectedInputs]);
 
-class FeatureCollection:
-    def __init__(self):
-        self.features = ${JSON.stringify(
-          items.map(item => ({
-            code: item.feature.featureCode,
-            name: item.feature.name,
-            category: item.feature.category,
-            inputs: item.feature.standardInputs,
-            output: item.feature.defaultOutputPlaceholder,
-            dependency: item.feature.repoDependency
-          })), null, 12
-        )}
-    
-    def process_features(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        results = {}
-        
-        ${items.map(item => `
-        # ${item.feature.name}
-        if '${item.feature.featureCode}' in self.features:
-            # Process with ${item.feature.repoDependency}
-            # Expected output: ${item.feature.defaultOutputPlaceholder}
-            results['${item.feature.featureCode}'] = self.${item.feature.featureCode}(input_data)
-        `).join('')}
-        
-        return results
-${items.map(item => `
-    def ${item.feature.featureCode}(self, input_data: Dict[str, Any]) -> str:
-        """
-        ${item.feature.description}
-        
-        Inputs: ${item.feature.standardInputs.join(', ')}
-        Output: ${item.feature.defaultOutputPlaceholder}
-        """
-        # Implementation using ${item.feature.repoDependency}
-        # TODO: Add your implementation here
-        return "${item.feature.defaultOutputPlaceholder}"
-`).join('')}
-
-# Usage Example:
-if __name__ == "__main__":
-    collection = FeatureCollection()
-    
-    # Sample input data
-    sample_data = {
-        "text": "Your input text here",
-        "code": "Your code here", 
-        "json": "Your JSON here"
-    }
-    
-    results = collection.process_features(sample_data)
-    print(json.dumps(results, indent=2))
-`;
-
-    const blob = new Blob([codeTemplate], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `z-grid-collection-${Date.now()}.py`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleInputToggle = (input: string) => {
+    setSelectedInputs(prev => 
+      prev.includes(input) 
+        ? prev.filter(i => i !== input)
+        : [...prev, input]
+    );
   };
 
-  const handleGenerateSpecs = () => {
-    const specs = {
-      collection_info: {
-        name: "Z-Grid Feature Collection",
-        generated_at: new Date().toISOString(),
-        total_features: totalItems,
-        unique_features: items.length
-      },
-      features: items.map(item => ({
-        feature_code: item.feature.featureCode,
+  const generateExportData = () => {
+    return {
+      collectionName,
+      createdAt: new Date().toISOString(),
+      inputs: selectedInputs,
+      defaultOutputPlaceholder: defaultOutput,
+      validators: items.map(item => ({
+        code: item.feature.featureCode,
         name: item.feature.name,
         category: item.feature.category,
-        description: item.feature.description,
-        standard_inputs: item.feature.standardInputs,
-        default_output_placeholder: item.feature.defaultOutputPlaceholder,
-        repository_dependency: item.feature.repoDependency,
-        reference_link: item.feature.referenceLink,
+        inputs: autoWireDefaults ? item.feature.standardInputs : selectedInputs,
+        outputPlaceholder: autoWireDefaults ? item.feature.defaultOutputPlaceholder : defaultOutput,
+        reference: item.feature.referenceLink,
         tags: item.feature.tags,
-        quantity: item.quantity,
-        example_input: item.feature.exampleInput,
-        example_output: item.feature.exampleOutput
-      })),
-      implementation_guide: {
-        setup_instructions: "Install required dependencies for each feature",
-        input_validation: "Ensure input data matches the standard_inputs specifications",
-        output_format: "Process outputs according to default_output_placeholder patterns",
-        error_handling: "Implement proper error handling for each feature validation"
-      }
+        dependency: item.feature.repoDependency
+      }))
     };
+  };
 
-    const blob = new Blob([JSON.stringify(specs, null, 2)], { type: 'application/json' });
+  const handleExportJSON = () => {
+    const data = generateExportData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `z-grid-specs-${Date.now()}.json`;
+    a.download = `${collectionName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Exported JSON",
+      description: "Collection has been exported as JSON file.",
+    });
+  };
+
+  const handleExportYAML = () => {
+    const data = generateExportData();
+    const yamlStr = yaml.dump(data, { indent: 2 });
+    const blob = new Blob([yamlStr], { type: 'application/x-yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${collectionName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Exported YAML",
+      description: "Collection has been exported as YAML file.",
+    });
+  };
+
+  const handleCopyToClipboard = () => {
+    const data = generateExportData();
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    
+    toast({
+      title: "Copied to Clipboard",
+      description: "Collection data has been copied as JSON.",
+    });
   };
 
   return (
@@ -132,24 +138,24 @@ if __name__ == "__main__":
 
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="p-3 rounded-full bg-gradient-to-r from-secondary to-accent text-white">
-              <Layers className="h-8 w-8" />
+              <Grid className="h-8 w-8" />
             </div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">
-              Your Collection
+              Collection Builder
             </h1>
           </div>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Review your selected features and generate implementation code or detailed specifications.
+            Configure and export your feature collection with custom settings.
           </p>
         </div>
 
         {items.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 flex items-center justify-center">
-              <Layers className="h-8 w-8 text-muted-foreground" />
+              <Grid className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold mb-2">No features in collection</h3>
             <p className="text-muted-foreground mb-4">
@@ -161,112 +167,175 @@ if __name__ == "__main__":
           </div>
         ) : (
           <div className="space-y-8">
-            {/* Collection Summary */}
+            {/* Selected Features Table */}
             <Card className="glass-card border-0">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold">Collection Summary</h2>
-                    <p className="text-muted-foreground">
-                      {totalItems} feature{totalItems !== 1 ? 's' : ''} across {new Set(items.map(item => item.feature.category)).size} categories
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleGenerateSpecs}>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Specs
-                    </Button>
-                    <Button onClick={handleGenerateCode} className="btn-gradient text-white">
-                      <Code className="h-4 w-4 mr-2" />
-                      Generate Code
-                    </Button>
-                  </div>
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Selected Features ({items.length})
+                </CardTitle>
               </CardHeader>
-            </Card>
-
-            {/* Features List */}
-            <div className="grid gap-4">
-              {items.map((item) => (
-                <Card key={item.id} className="glass-card border-0">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Badge className="bg-primary/10 text-primary">
-                            {item.feature.category}
-                          </Badge>
-                          <h3 className="font-semibold">{item.feature.name}</h3>
-                          <span className="text-sm text-muted-foreground font-mono">
-                            x{item.quantity}
-                          </span>
-                        </div>
-                        
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {item.feature.description}
-                        </p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium text-muted-foreground">Inputs:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Standard Inputs</TableHead>
+                        <TableHead>Default Output</TableHead>
+                        <TableHead>Reference</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-mono text-sm">
+                            {item.feature.featureCode}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {item.feature.name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {item.feature.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
                               {item.feature.standardInputs.map((input, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
+                                <Badge key={index} variant="secondary" className="text-xs">
                                   {input}
                                 </Badge>
                               ))}
                             </div>
-                          </div>
-                          
-                          <div>
-                            <span className="font-medium text-muted-foreground">Output:</span>
-                            <div className="mt-1">
-                              <Badge variant="secondary" className="text-xs font-mono">
-                                {item.feature.defaultOutputPlaceholder}
-                              </Badge>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <span className="font-medium text-muted-foreground">Repository:</span>
-                            <div className="mt-1 font-mono text-xs">
-                              {item.feature.repoDependency}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs font-mono">
+                              {item.feature.defaultOutputPlaceholder}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" asChild>
+                              <a href={item.feature.referenceLink} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Implementation Guide */}
+            {/* Configuration Panel */}
             <Card className="glass-card border-0">
               <CardHeader>
-                <h3 className="text-lg font-semibold">Implementation Guide</h3>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Collection Configuration
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* Collection Name */}
                 <div>
-                  <h4 className="font-medium mb-2">Next Steps:</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                    <li>Download the generated code template or specifications</li>
-                    <li>Install required dependencies for each feature</li>
-                    <li>Implement the feature methods based on your requirements</li>
-                    <li>Test with the provided example inputs and outputs</li>
-                    <li>Integrate into your application workflow</li>
-                  </ul>
+                  <Label htmlFor="collection-name">Collection Name</Label>
+                  <input
+                    id="collection-name"
+                    type="text"
+                    value={collectionName}
+                    onChange={(e) => setCollectionName(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                  />
                 </div>
-                
-                <div>
-                  <h4 className="font-medium mb-2">Standard Input Types:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {[...new Set(items.flatMap(item => item.feature.standardInputs))].map((input) => (
-                      <Badge key={input} variant="outline" className="text-xs">
-                        {input}
-                      </Badge>
-                    ))}
-                  </div>
+
+                {/* Auto-wire Toggle */}
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="auto-wire"
+                    checked={autoWireDefaults}
+                    onCheckedChange={setAutoWireDefaults}
+                  />
+                  <Label htmlFor="auto-wire">
+                    Auto-wire defaults (use each feature's original settings)
+                  </Label>
+                </div>
+
+                {!autoWireDefaults && (
+                  <>
+                    {/* Global Standard Inputs */}
+                    <div>
+                      <Label className="text-base font-medium">Global Standard Inputs</Label>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Select input types that will apply to all features in this collection
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {ALL_INPUT_TYPES.map((input) => (
+                          <div key={input} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`input-${input}`}
+                              checked={selectedInputs.includes(input)}
+                              onCheckedChange={() => handleInputToggle(input)}
+                            />
+                            <Label htmlFor={`input-${input}`} className="text-sm">
+                              {input}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Global Output Placeholder */}
+                    <div>
+                      <Label htmlFor="output-placeholder" className="text-base font-medium">
+                        Global Output Placeholder
+                      </Label>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Default output format that will apply to all features
+                      </p>
+                      <Select value={defaultOutput} onValueChange={setDefaultOutput}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OUTPUT_PLACEHOLDERS.map((placeholder) => (
+                            <SelectItem key={placeholder} value={placeholder}>
+                              {placeholder}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Export Actions */}
+            <Card className="glass-card border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="h-5 w-5" />
+                  Export Collection
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-4">
+                  <Button onClick={handleExportJSON} className="btn-gradient text-white">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export JSON
+                  </Button>
+                  <Button onClick={handleExportYAML} variant="outline">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Export YAML
+                  </Button>
+                  <Button onClick={handleCopyToClipboard} variant="outline">
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy to Clipboard
+                  </Button>
                 </div>
               </CardContent>
             </Card>
