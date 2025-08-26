@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useCart } from '@/hooks/useCart';
+import { useToast } from '@/hooks/use-toast';
 import { FeatureModal } from './FeatureModal';
 
 interface FeatureCardProps {
@@ -14,10 +15,15 @@ interface FeatureCardProps {
 export function FeatureCard({ feature }: FeatureCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { addItem } = useCart();
+  const { toast } = useToast();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     addItem(feature);
+    toast({
+      title: "Added to Cart",
+      description: `${feature.name} has been added to your collection.`,
+    });
   };
 
   const getCategoryColor = (category: string) => {

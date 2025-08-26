@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { useCart } from '@/hooks/useCart';
+import { useToast } from '@/hooks/use-toast';
 
 interface FeatureModalProps {
   feature: Feature;
@@ -14,9 +15,14 @@ interface FeatureModalProps {
 
 export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   const { addItem } = useCart();
+  const { toast } = useToast();
 
   const handleAddToCart = () => {
     addItem(feature);
+    toast({
+      title: "Added to Cart",
+      description: `${feature.name} has been added to your collection.`,
+    });
     onClose();
   };
 
