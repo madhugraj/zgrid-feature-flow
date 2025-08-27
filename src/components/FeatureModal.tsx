@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
+import { validatePII, validateTox } from '@/lib/zgridClient';
+import ServiceStatus from '@/components/ServiceStatus';
 
 interface FeatureModalProps {
   feature: Feature;
@@ -45,21 +47,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
   const detectPII = async (text: string) => {
     try {
-      const response = await fetch('https://abdf3702eebc.ngrok-free.app/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-          'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({ text })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
+      return await validatePII(text);
     } catch (error) {
       console.error('PII Detection Error:', error);
       throw error;
@@ -68,21 +56,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
   const detectToxicity = async (text: string) => {
     try {
-      const response = await fetch('https://b61c95edbd24.ngrok-free.app/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-          'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({ text })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
+      return await validateTox({ text });
     } catch (error) {
       console.error('Toxicity Detection Error:', error);
       throw error;
@@ -96,19 +70,6 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
     try {
       // Check if this is PII Protection feature
       if (feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) {
-        if (!apiKey.trim()) {
-          setSimulationResult({ 
-            status: 'blocked', 
-            error: 'API key is required for PII Protection' 
-          });
-          toast({
-            title: "API Key Required",
-            description: "Please enter your API key to test PII Protection.",
-            variant: "destructive"
-          });
-          return;
-        }
-
         if (useLocalServices) {
           try {
             const result = await detectPII(tryItInput);
@@ -125,11 +86,11 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           } catch (error) {
             setSimulationResult({ 
               status: 'blocked', 
-              error: 'Failed to connect to PII service. The Lovable preview environment cannot access ngrok tunnels due to security restrictions.' 
+              error: 'Failed to connect to PII service. Check that your environment variables are set correctly.' 
             });
             toast({
               title: "Service Connection Error", 
-              description: "Cannot connect from preview environment. Deploy your app to test with real services.",
+              description: "Cannot connect to PII service. Check configuration.",
               variant: "destructive"
             });
           }
@@ -160,19 +121,6 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
         }
       } else if (feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) {
         if (useLocalServices) {
-          if (!apiKey.trim()) {
-            setSimulationResult({ 
-              status: 'blocked', 
-              error: 'API key is required for Toxicity Detection' 
-            });
-            toast({
-              title: "API Key Required",
-              description: "Please enter your API key to test Toxicity Detection.",
-              variant: "destructive"
-            });
-            return;
-          }
-
           try {
             const result = await detectToxicity(tryItInput);
             setSimulationResult({
@@ -189,11 +137,11 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           } catch (error) {
             setSimulationResult({ 
               status: 'blocked', 
-              error: 'Failed to connect to Toxicity service. The Lovable preview environment cannot access ngrok tunnels due to security restrictions.' 
+              error: 'Failed to connect to Toxicity service. Check that your environment variables are set correctly.' 
             });
             toast({
               title: "Service Connection Error",
-              description: "Cannot connect from preview environment. Deploy your app to test with real services.",
+              description: "Cannot connect to Toxicity service. Check configuration.",
               variant: "destructive"
             });
           }
@@ -348,9 +296,15 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
           {/* Try It Playground */}
           <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Play className="h-5 w-5" />
-              Try It
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <Play className="h-5 w-5" />
+                Try It
+              </div>
+              {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii') || 
+                feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) && (
+                <ServiceStatus />
+              )}
             </h3>
             <div className="space-y-4">
               {/* Service Mode Toggle */}
@@ -366,32 +320,13 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                       className="rounded"
                     />
                     <label htmlFor="useLocalServices" className="text-sm font-medium">
-                      Connect to Local Services (Deploy Required)
+                      Connect to Real Services
                     </label>
                   </div>
                   
-                  {useLocalServices && (
-                    <div>
-                      <label className="text-sm font-medium mb-2 block flex items-center gap-2">
-                        <Key className="h-4 w-4" />
-                        API Key
-                      </label>
-                      <Input
-                        type="password"
-                        placeholder="Enter your API key (e.g., supersecret123)"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        className="font-mono"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Required for connecting to the {feature.featureCode === 'ZG0004' ? 'toxicity detection' : 'PII detection'} service
-                      </p>
-                    </div>
-                  )}
-                  
                   {!useLocalServices && (
-                    <p className="text-xs text-muted-foreground bg-blue-50 p-2 rounded">
-                      💡 Demo Mode: Using simulated responses. Enable "Connect to Local Services" and deploy your app to test with real ngrok services.
+                    <p className="text-xs text-muted-foreground bg-primary/5 p-3 rounded border border-primary/20">
+                      💡 Demo Mode: Using simulated responses. Enable "Connect to Real Services" to test with your deployed backend services.
                     </p>
                   )}
                 </div>
