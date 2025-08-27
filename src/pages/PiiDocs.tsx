@@ -12,19 +12,10 @@ export default function PiiDocs() {
     <main className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="text-3xl font-semibold">PII Protection — Z-Grid Microservice</h1>
       <p className="text-muted-foreground mt-2">
-        Fully local Presidio + GLiNER service used by this feature card.
+        API documentation for the PII detection and redaction service.
       </p>
 
-      <div className="grid sm:grid-cols-3 gap-4 mt-6">
-        <div className="border rounded-xl p-4 bg-card">
-          <div className="text-xs uppercase text-muted-foreground">Repository Dependencies</div>
-          <ul className="mt-2 text-sm list-disc list-inside">
-            <li>Presidio Analyzer + Anonymizer</li>
-            <li>SpaCy: <code className="bg-muted px-1 rounded">en_core_web_lg</code></li>
-            <li>GLiNER: <code className="bg-muted px-1 rounded">urchade/gliner_small-v2.1</code></li>
-            <li>Encoder: <code className="bg-muted px-1 rounded">microsoft/deberta-v3-small</code></li>
-          </ul>
-        </div>
+      <div className="grid sm:grid-cols-2 gap-4 mt-6">
         <div className="border rounded-xl p-4 bg-card">
           <div className="text-xs uppercase text-muted-foreground">Endpoints</div>
           <div className="text-sm mt-2">
