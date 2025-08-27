@@ -47,7 +47,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': apiKey
+        'X-API-Key': apiKey,
+        'ngrok-skip-browser-warning': 'true'
       },
       body: JSON.stringify({ text })
     });
@@ -59,7 +60,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': apiKey
+        'X-API-Key': apiKey,
+        'ngrok-skip-browser-warning': 'true'
       },
       body: JSON.stringify({ text })
     });
