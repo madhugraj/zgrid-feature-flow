@@ -43,7 +43,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   };
 
   const detectPII = async (text: string) => {
-    const response = await fetch('https://your-ngrok-url-for-8000.ngrok-free.app/validate', {
+    const response = await fetch('https://abdf3702eebc.ngrok-free.app/validate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   };
 
   const detectToxicity = async (text: string) => {
-    const response = await fetch('https://your-ngrok-url-for-8001.ngrok-free.app/validate', {
+    const response = await fetch('https://b61c95edbd24.ngrok-free.app/validate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
