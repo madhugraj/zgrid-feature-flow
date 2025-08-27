@@ -43,29 +43,49 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   };
 
   const detectPII = async (text: string) => {
-    const response = await fetch('https://abdf3702eebc.ngrok-free.app/validate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey,
-        'ngrok-skip-browser-warning': 'true'
-      },
-      body: JSON.stringify({ text })
-    });
-    return response.json();
+    try {
+      const response = await fetch('https://abdf3702eebc.ngrok-free.app/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({ text })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('PII Detection Error:', error);
+      throw error;
+    }
   };
 
   const detectToxicity = async (text: string) => {
-    const response = await fetch('https://b61c95edbd24.ngrok-free.app/validate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey,
-        'ngrok-skip-browser-warning': 'true'
-      },
-      body: JSON.stringify({ text })
-    });
-    return response.json();
+    try {
+      const response = await fetch('https://b61c95edbd24.ngrok-free.app/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({ text })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Toxicity Detection Error:', error);
+      throw error;
+    }
   };
 
   const handleSimulate = async () => {
