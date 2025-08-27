@@ -32,6 +32,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
     scores?: Record<string, number>;
     error?: string;
   }>({ status: null });
+  const [useLocalServices, setUseLocalServices] = useState(false);
 
   const handleAddToCart = () => {
     addItem(feature);
@@ -108,65 +109,130 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           return;
         }
 
-        try {
-          const result = await detectPII(tryItInput);
+        if (useLocalServices) {
+          try {
+            const result = await detectPII(tryItInput);
+            setSimulationResult({
+              status: result.entities?.length > 0 ? 'blocked' : 'passed',
+              redactedText: result.redacted_text,
+              entities: result.entities
+            });
+            
+            toast({
+              title: "PII Detection Complete",
+              description: `Found ${result.entities?.length || 0} PII entities.`,
+            });
+          } catch (error) {
+            setSimulationResult({ 
+              status: 'blocked', 
+              error: 'Failed to connect to PII service. The Lovable preview environment cannot access ngrok tunnels due to security restrictions.' 
+            });
+            toast({
+              title: "Service Connection Error", 
+              description: "Cannot connect from preview environment. Deploy your app to test with real services.",
+              variant: "destructive"
+            });
+          }
+        } else {
+          // Mock PII detection for demo
+          const mockEntities = [];
+          const input = tryItInput.toLowerCase();
+          if (input.includes('@') || input.includes('email')) {
+            mockEntities.push({ type: 'EMAIL', text: 'detected email', start: 0, end: 10 });
+          }
+          if (input.includes('phone') || /\d{3}-\d{3}-\d{4}/.test(input)) {
+            mockEntities.push({ type: 'PHONE', text: 'detected phone', start: 0, end: 10 });
+          }
+          if (/\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(tryItInput)) {
+            mockEntities.push({ type: 'PERSON', text: 'detected name', start: 0, end: 10 });
+          }
+          
           setSimulationResult({
-            status: result.entities?.length > 0 ? 'blocked' : 'passed',
-            redactedText: result.redacted_text,
-            entities: result.entities
+            status: mockEntities.length > 0 ? 'blocked' : 'passed',
+            redactedText: mockEntities.length > 0 ? tryItInput.replace(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, '[PERSON]').replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL]') : tryItInput,
+            entities: mockEntities
           });
           
           toast({
-            title: "PII Detection Complete",
-            description: `Found ${result.entities?.length || 0} PII entities.`,
-          });
-        } catch (error) {
-          setSimulationResult({ 
-            status: 'blocked', 
-            error: 'Failed to connect to PII service. Make sure the service is running on localhost:8000.' 
-          });
-          toast({
-            title: "Service Error",
-            description: "Could not connect to PII detection service.",
-            variant: "destructive"
+            title: "PII Detection Complete (Demo Mode)",
+            description: `Found ${mockEntities.length} PII entities in demo simulation.`,
           });
         }
       } else if (feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) {
-        if (!apiKey.trim()) {
-          setSimulationResult({ 
-            status: 'blocked', 
-            error: 'API key is required for Toxicity Detection' 
-          });
-          toast({
-            title: "API Key Required",
-            description: "Please enter your API key to test Toxicity Detection.",
-            variant: "destructive"
-          });
-          return;
-        }
+        if (useLocalServices) {
+          if (!apiKey.trim()) {
+            setSimulationResult({ 
+              status: 'blocked', 
+              error: 'API key is required for Toxicity Detection' 
+            });
+            toast({
+              title: "API Key Required",
+              description: "Please enter your API key to test Toxicity Detection.",
+              variant: "destructive"
+            });
+            return;
+          }
 
-        try {
-          const result = await detectToxicity(tryItInput);
+          try {
+            const result = await detectToxicity(tryItInput);
+            setSimulationResult({
+              status: result.status,
+              cleanText: result.clean_text,
+              flagged: result.flagged,
+              scores: result.scores
+            });
+            
+            toast({
+              title: "Toxicity Detection Complete",
+              description: `Status: ${result.status}. Found ${result.flagged?.length || 0} toxic elements.`,
+            });
+          } catch (error) {
+            setSimulationResult({ 
+              status: 'blocked', 
+              error: 'Failed to connect to Toxicity service. The Lovable preview environment cannot access ngrok tunnels due to security restrictions.' 
+            });
+            toast({
+              title: "Service Connection Error",
+              description: "Cannot connect from preview environment. Deploy your app to test with real services.",
+              variant: "destructive"
+            });
+          }
+        } else {
+          // Mock toxicity detection for demo
+          const input = tryItInput.toLowerCase();
+          const toxicPatterns = ['hate', 'kill', 'stupid', 'idiot', 'attack', 'destroy', 'violence'];
+          const flaggedItems = [];
+          let cleanText = tryItInput;
+          
+          toxicPatterns.forEach(pattern => {
+            if (input.includes(pattern)) {
+              flaggedItems.push({
+                type: 'TOXICITY',
+                score: 0.85 + Math.random() * 0.1, // Random score between 0.85-0.95
+                span: [input.indexOf(pattern), input.indexOf(pattern) + pattern.length],
+                sentence: tryItInput
+              });
+              cleanText = cleanText.replace(new RegExp(pattern, 'gi'), '[REMOVED]');
+            }
+          });
+          
           setSimulationResult({
-            status: result.status,
-            cleanText: result.clean_text,
-            flagged: result.flagged,
-            scores: result.scores
+            status: flaggedItems.length > 0 ? 'fixed' : 'passed',
+            cleanText: flaggedItems.length > 0 ? cleanText : tryItInput,
+            flagged: flaggedItems,
+            scores: {
+              toxicity: flaggedItems.length > 0 ? 0.85 : 0.05,
+              severe_toxicity: flaggedItems.length > 0 ? 0.12 : 0.01,
+              obscene: flaggedItems.length > 0 ? 0.45 : 0.02,
+              threat: flaggedItems.length > 0 ? 0.25 : 0.01,
+              insult: flaggedItems.length > 0 ? 0.65 : 0.02,
+              identity_attack: flaggedItems.length > 0 ? 0.15 : 0.01
+            }
           });
           
           toast({
-            title: "Toxicity Detection Complete",
-            description: `Status: ${result.status}. Found ${result.flagged?.length || 0} toxic elements.`,
-          });
-        } catch (error) {
-          setSimulationResult({ 
-            status: 'blocked', 
-            error: 'Failed to connect to Toxicity service. Make sure the service is running on localhost:8001.' 
-          });
-          toast({
-            title: "Service Error",
-            description: "Could not connect to toxicity detection service.",
-            variant: "destructive"
+            title: "Toxicity Detection Complete (Demo Mode)",
+            description: `Status: ${flaggedItems.length > 0 ? 'fixed' : 'passed'}. Found ${flaggedItems.length} toxic elements in demo simulation.`,
           });
         }
       } else {
@@ -287,24 +353,47 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               Try It
             </h3>
             <div className="space-y-4">
-              {/* API Key input for PII Protection and Toxicity Detection */}
+              {/* Service Mode Toggle */}
               {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii') || 
                 feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) && (
-                <div>
-                  <label className="text-sm font-medium mb-2 block flex items-center gap-2">
-                    <Key className="h-4 w-4" />
-                    API Key
-                  </label>
-                  <Input
-                    type="password"
-                    placeholder="Enter your API key (e.g., supersecret123)"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="font-mono"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Required for connecting to the {feature.featureCode === 'ZG0004' ? 'toxicity detection' : 'PII detection'} service
-                  </p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="useLocalServices"
+                      checked={useLocalServices}
+                      onChange={(e) => setUseLocalServices(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="useLocalServices" className="text-sm font-medium">
+                      Connect to Local Services (Deploy Required)
+                    </label>
+                  </div>
+                  
+                  {useLocalServices && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                        <Key className="h-4 w-4" />
+                        API Key
+                      </label>
+                      <Input
+                        type="password"
+                        placeholder="Enter your API key (e.g., supersecret123)"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Required for connecting to the {feature.featureCode === 'ZG0004' ? 'toxicity detection' : 'PII detection'} service
+                      </p>
+                    </div>
+                  )}
+                  
+                  {!useLocalServices && (
+                    <p className="text-xs text-muted-foreground bg-blue-50 p-2 rounded">
+                      💡 Demo Mode: Using simulated responses. Enable "Connect to Local Services" and deploy your app to test with real ngrok services.
+                    </p>
+                  )}
                 </div>
               )}
               
