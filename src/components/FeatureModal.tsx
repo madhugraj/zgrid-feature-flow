@@ -24,9 +24,12 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [simulationResult, setSimulationResult] = useState<{ 
-    status: 'passed' | 'blocked' | null;
+    status: 'passed' | 'blocked' | 'fixed' | null;
     redactedText?: string;
+    cleanText?: string;
     entities?: Array<{ type: string; text: string; start: number; end: number }>;
+    flagged?: Array<{ type: string; score: number; span: number[]; sentence: string }>;
+    scores?: Record<string, number>;
     error?: string;
   }>({ status: null });
 
@@ -41,6 +44,18 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
   const detectPII = async (text: string) => {
     const response = await fetch('http://localhost:8000/validate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ text })
+    });
+    return response.json();
+  };
+
+  const detectToxicity = async (text: string) => {
+    const response = await fetch('http://localhost:8001/validate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -91,6 +106,44 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           toast({
             title: "Service Error",
             description: "Could not connect to PII detection service.",
+            variant: "destructive"
+          });
+        }
+      } else if (feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) {
+        if (!apiKey.trim()) {
+          setSimulationResult({ 
+            status: 'blocked', 
+            error: 'API key is required for Toxicity Detection' 
+          });
+          toast({
+            title: "API Key Required",
+            description: "Please enter your API key to test Toxicity Detection.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        try {
+          const result = await detectToxicity(tryItInput);
+          setSimulationResult({
+            status: result.status,
+            cleanText: result.clean_text,
+            flagged: result.flagged,
+            scores: result.scores
+          });
+          
+          toast({
+            title: "Toxicity Detection Complete",
+            description: `Status: ${result.status}. Found ${result.flagged?.length || 0} toxic elements.`,
+          });
+        } catch (error) {
+          setSimulationResult({ 
+            status: 'blocked', 
+            error: 'Failed to connect to Toxicity service. Make sure the service is running on localhost:8001.' 
+          });
+          toast({
+            title: "Service Error",
+            description: "Could not connect to toxicity detection service.",
             variant: "destructive"
           });
         }
@@ -212,8 +265,9 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               Try It
             </h3>
             <div className="space-y-4">
-              {/* API Key input for PII Protection */}
-              {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) && (
+              {/* API Key input for PII Protection and Toxicity Detection */}
+              {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii') || 
+                feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) && (
                 <div>
                   <label className="text-sm font-medium mb-2 block flex items-center gap-2">
                     <Key className="h-4 w-4" />
@@ -227,7 +281,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                     className="font-mono"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Required for connecting to the PII detection service
+                    Required for connecting to the {feature.featureCode === 'ZG0004' ? 'toxicity detection' : 'PII detection'} service
                   </p>
                 </div>
               )}
@@ -255,15 +309,16 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                 
                 {simulationResult.status && (
                   <Badge 
-                    variant={simulationResult.status === 'blocked' ? 'destructive' : 'default'}
+                    variant={simulationResult.status === 'blocked' || simulationResult.status === 'fixed' ? 'destructive' : 'default'}
                     className="flex items-center gap-1"
                   >
-                    {simulationResult.status === 'blocked' ? (
+                    {simulationResult.status === 'blocked' || simulationResult.status === 'fixed' ? (
                       <XCircle className="h-3 w-3" />
                     ) : (
                       <CheckCircle className="h-3 w-3" />
                     )}
-                    {simulationResult.status === 'blocked' ? 'PII Detected' : 'Clean'}
+                    {simulationResult.status === 'blocked' ? (feature.featureCode === 'ZG0001' ? 'PII Detected' : 'Content Blocked') : 
+                     simulationResult.status === 'fixed' ? 'Toxic Content Removed' : 'Clean'}
                   </Badge>
                 )}
               </div>
@@ -292,6 +347,50 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                   )}
                 </div>
               )}
+
+              {/* Toxicity Detection Results */}
+              {simulationResult.cleanText && (
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Clean Text</label>
+                    <div className="bg-background p-3 rounded border font-mono text-sm">
+                      {simulationResult.cleanText}
+                    </div>
+                  </div>
+                  
+                  {simulationResult.flagged && simulationResult.flagged.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Flagged Content</label>
+                      <div className="space-y-2">
+                        {simulationResult.flagged.map((item, index) => (
+                          <div key={index} className="bg-destructive/10 p-2 rounded border border-destructive/20">
+                            <div className="flex justify-between items-center">
+                              <Badge variant="destructive" className="text-xs">
+                                {item.type}: {(item.score * 100).toFixed(1)}%
+                              </Badge>
+                            </div>
+                            <div className="text-sm mt-1 font-mono">"{item.sentence}"</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {simulationResult.scores && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Toxicity Scores</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(simulationResult.scores).map(([key, score]) => (
+                          <div key={key} className="flex justify-between text-xs">
+                            <span className="capitalize">{key.replace('_', ' ')}</span>
+                            <span className="font-mono">{(score * 100).toFixed(1)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {simulationResult.error && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
@@ -302,6 +401,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               <p className="text-xs text-muted-foreground">
                 {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) 
                   ? '* This connects to your real PII detection service running on localhost:8000'
+                  : (feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity'))
+                  ? '* This connects to your real toxicity detection service running on localhost:8001'
                   : '* This is a demo simulation for UX purposes only. Actual implementation would use the specified repository dependency.'
                 }
               </p>
@@ -367,6 +468,11 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               <Button variant="outline" size="sm" asChild>
                 {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) ? (
                   <Link to="/docs/pii-protection">
+                    <Code className="h-4 w-4 mr-2" />
+                    View Documentation
+                  </Link>
+                ) : (feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) ? (
+                  <Link to="/docs/toxicity-protection">
                     <Code className="h-4 w-4 mr-2" />
                     View Documentation
                   </Link>

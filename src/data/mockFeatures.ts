@@ -67,7 +67,7 @@ export const mockFeatures: Feature[] = [
     "exampleInput": "You are ****",
     "exampleOutput": "You are [CENSORED]",
     "repoDependency": "Detoxify / profanity-check",
-    "referenceLink": "https://hub.guardrailsai.com/validator/guardrails/toxic_language",
+    "referenceLink": "/docs/toxicity-protection",
     "tags": [
       "moderation",
       "toxicity",
