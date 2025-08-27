@@ -1,18 +1,43 @@
 type FetchOptions = { method?: "GET" | "POST"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
-const PII_BASE = import.meta.env.VITE_PII_ENDPOINT ?? "";
-const PII_KEY  = import.meta.env.VITE_PII_API_KEY ?? "";
+// Default endpoints - can be overridden
+let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "https://abdf3702eebc.ngrok-free.app";
+let PII_KEY  = import.meta.env.VITE_PII_API_KEY || "supersecret123";
 
-const TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT ?? "";
-const TOX_KEY  = import.meta.env.VITE_TOX_API_KEY ?? "";
+let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "https://b61c95edbd24.ngrok-free.app";
+let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
+
+// Configuration helpers
+export function setServiceConfig(config: {
+  piiEndpoint?: string;
+  piiApiKey?: string;
+  toxEndpoint?: string;
+  toxApiKey?: string;
+}) {
+  if (config.piiEndpoint) PII_BASE = config.piiEndpoint;
+  if (config.piiApiKey) PII_KEY = config.piiApiKey;
+  if (config.toxEndpoint) TOX_BASE = config.toxEndpoint;
+  if (config.toxApiKey) TOX_KEY = config.toxApiKey;
+}
+
+export function getServiceConfig() {
+  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY };
+}
 
 // single fetch with timeout + helpful errors
 async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=12000 }: FetchOptions = {}) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
+  
+  console.log(`Making request to: ${url}`, { method, headers, body });
+  
   const r = await fetch(url, {
     method,
-    headers: { "Content-Type":"application/json", ...headers },
+    headers: { 
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true",
+      ...headers 
+    },
     body: body ? JSON.stringify(body) : undefined,
     signal: ctrl.signal,
     credentials: "omit",
