@@ -53,7 +53,7 @@ export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
 
   return (
     <Card 
-      className="h-full feature-card glass-card group fade-in"
+      className="h-full feature-card glass-card group fade-in hover-scale cursor-pointer relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-glow before:opacity-0 hover:before:opacity-20 before:transition-opacity before:duration-300"
       onClick={() => onFeatureClick?.(feature)}
     >
         <CardHeader className="pb-3 px-4 pt-4">
@@ -73,7 +73,7 @@ export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
             <Button
               size="sm"
               onClick={handleAddToCart}
-              className="btn-gradient shrink-0 h-8 w-8 p-0 opacity-80 group-hover:opacity-100"
+              className="btn-gradient shrink-0 h-8 w-8 p-0 opacity-80 group-hover:opacity-100 hover:scale-110 transition-transform duration-200 shadow-lg hover:shadow-xl"
             >
               <Plus className="h-3.5 w-3.5" />
             </Button>
