@@ -1,10 +1,10 @@
 type FetchOptions = { method?: "GET" | "POST"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
-// Default endpoints - can be overridden
-let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "mock";
+// Default endpoints - using your ngrok URLs
+let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "https://62db46e0d53a.ngrok-free.app";
 let PII_KEY  = import.meta.env.VITE_PII_API_KEY || "supersecret123";
 
-let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "mock";
+let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "https://41eb0925df35.ngrok-free.app";
 let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
 
 // Configuration helpers
@@ -31,21 +31,36 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   
   console.log(`Making request to: ${url}`, { method, headers, body });
   
-  const r = await fetch(url, {
-    method,
-    headers: { 
-      "Content-Type": "application/json",
-      "ngrok-skip-browser-warning": "true",
-      ...headers 
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: ctrl.signal,
-    credentials: "omit",
-    cache: "no-store",
-  }).catch((e) => { throw new Error(`Network error: ${e.message}`) });
-  clearTimeout(to);
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
-  return r.json();
+  try {
+    const r = await fetch(url, {
+      method,
+      headers: { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+        ...headers 
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+    });
+    
+    clearTimeout(to);
+    console.log(`Response status: ${r.status} for ${url}`);
+    
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.error(`HTTP Error ${r.status}:`, errorText);
+      throw new Error(`${r.status} ${r.statusText}: ${errorText}`);
+    }
+    
+    return r.json();
+  } catch (e) {
+    clearTimeout(to);
+    console.error(`Fetch failed for ${url}:`, e);
+    throw new Error(`Network error: ${e.message} - This might be a CORS issue. Make sure your local services allow cross-origin requests from ${window.location.origin}`);
+  }
 }
 
 // Health helpers
