@@ -1,10 +1,10 @@
 type FetchOptions = { method?: "GET" | "POST"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
 // Default endpoints - can be overridden
-let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "https://abdf3702eebc.ngrok-free.app";
+let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://localhost:8000";
 let PII_KEY  = import.meta.env.VITE_PII_API_KEY || "supersecret123";
 
-let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "https://b61c95edbd24.ngrok-free.app";
+let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "http://localhost:8001";
 let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
 
 // Configuration helpers
