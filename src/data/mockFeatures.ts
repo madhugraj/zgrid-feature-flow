@@ -8,7 +8,7 @@ export const mockFeatures: Feature[] = [
     "description": "Detects and anonymizes personally identifiable information (PII).",
     "exampleInput": "Contact John at john.doe@email.com",
     "exampleOutput": "Contact John at [EMAIL REDACTED]",
-    "repoDependency": "Presidio + GLiNER",
+    "repoDependency": "Advanced ML Models",
     "referenceLink": "https://hub.guardrailsai.com/validator/guardrails/guardrails_pii",
     "tags": [
       "privacy",

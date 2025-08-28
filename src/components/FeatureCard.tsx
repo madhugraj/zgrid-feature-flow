@@ -56,7 +56,7 @@ export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
       className="h-full feature-card glass-card group fade-in"
       onClick={() => onFeatureClick?.(feature)}
     >
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-3 px-4 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <Badge 
@@ -80,12 +80,12 @@ export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
           </div>
         </CardHeader>
         
-        <CardContent className="pt-0 space-y-4">
-          <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">
+        <CardContent className="pt-0 px-4 pb-4 space-y-3">
+          <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-snug">
             {feature.description}
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {/* Input Types - Minimalist */}
             <div className="flex items-center gap-2">
               <Database className="h-3.5 w-3.5 text-muted-foreground/60" />
@@ -121,7 +121,7 @@ export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-border/30">
+          <div className="flex items-center justify-between pt-1.5 border-t border-border/30">
             <Button 
               variant="ghost" 
               size="sm" 

@@ -40,8 +40,8 @@ Body:
 {
   "text": "string",
   "entities": ["EMAIL_ADDRESS","PHONE_NUMBER","PERSON","LOCATION"],     // optional
-  "gliner_labels": ["person","location","organization"],                // optional
-  "gliner_threshold": 0.6,                                              // optional
+  "detection_labels": ["person","location","organization"],             // optional
+  "detection_threshold": 0.6,                                           // optional
   "thresholds": {"EMAIL_ADDRESS":0.3,"PERSON":0.6},                      // optional
   "return_spans": true,
   "language": "en"
@@ -60,8 +60,8 @@ Body:
     "replacement": "[EMAIL]" 
   }],
   "steps": [
-    { "name": "presidio", "passed": true }, 
-    { "name": "gliner", "passed": true }
+    { "name": "entity_detection", "passed": true }, 
+    { "name": "pattern_matching", "passed": true }
   ],
   "reasons": ["PII redacted"]
 }`} />
@@ -83,7 +83,7 @@ Body:
       <div className="mt-6 p-6 bg-muted/50 rounded-xl">
         <h3 className="text-lg font-semibold mb-2">Service Capabilities</h3>
         <ul className="list-disc list-inside text-sm space-y-1">
-          <li><strong>Multi-engine detection:</strong> Presidio + GLiNER models</li>
+          <li><strong>Multi-engine detection:</strong> Advanced ML pipelines</li>
           <li><strong>Supports:</strong> Emails, phones, SSNs, names, locations, Aadhaar, PAN, etc.</li>
           <li><strong>Configurable:</strong> Thresholds, placeholders, entity types</li>
           <li><strong>Production-ready:</strong> Scaling, monitoring, backup procedures</li>
