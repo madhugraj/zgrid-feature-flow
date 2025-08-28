@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { validatePII, validateTox } from '@/lib/zgridClient';
-import ServiceStatus from '@/components/ServiceStatus';
+
 
 interface FeatureModalProps {
   feature: Feature;
@@ -301,10 +301,6 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                 <Play className="h-5 w-5" />
                 Try It
               </div>
-              {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii') || 
-                feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) && (
-                <ServiceStatus />
-              )}
             </h3>
             <div className="space-y-4">
               {/* Service Mode Toggle */}
