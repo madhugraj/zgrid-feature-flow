@@ -16,6 +16,9 @@ let BAN_KEY  = import.meta.env.VITE_BAN_API_KEY || "supersecret123";
 let POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "http://localhost:8003";
 let POLICY_KEY  = import.meta.env.VITE_POLICY_API_KEY || "supersecret123";
 
+let SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "http://localhost:8005";
+let SECRETS_KEY  = import.meta.env.VITE_SECRETS_API_KEY || "supersecret123";
+
 // Configuration helpers
 export function setServiceConfig(config: {
   piiEndpoint?: string;
@@ -28,6 +31,8 @@ export function setServiceConfig(config: {
   banApiKey?: string;
   policyEndpoint?: string;
   policyApiKey?: string;
+  secretsEndpoint?: string;
+  secretsApiKey?: string;
 }) {
   if (config.piiEndpoint) PII_BASE = config.piiEndpoint;
   if (config.piiApiKey) PII_KEY = config.piiApiKey;
@@ -39,10 +44,12 @@ export function setServiceConfig(config: {
   if (config.banApiKey) BAN_KEY = config.banApiKey;
   if (config.policyEndpoint) POLICY_BASE = config.policyEndpoint;
   if (config.policyApiKey) POLICY_KEY = config.policyApiKey;
+  if (config.secretsEndpoint) SECRETS_BASE = config.secretsEndpoint;
+  if (config.secretsApiKey) SECRETS_KEY = config.secretsApiKey;
 }
 
 export function getServiceConfig() {
-  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY, JAIL_BASE, JAIL_KEY, BAN_BASE, BAN_KEY, POLICY_BASE, POLICY_KEY };
+  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY, JAIL_BASE, JAIL_KEY, BAN_BASE, BAN_KEY, POLICY_BASE, POLICY_KEY, SECRETS_BASE, SECRETS_KEY };
 }
 
 // single fetch with timeout + helpful errors
@@ -108,6 +115,11 @@ export async function healthBan() {
 export async function healthPolicy() { 
   if (POLICY_BASE === "mock") return { status: "ok", service: "policy-mock" };
   return xfetch(`${POLICY_BASE}/health`); 
+}
+
+export async function healthSecrets() { 
+  if (SECRETS_BASE === "mock") return { status: "ok", service: "secrets-mock" };
+  return xfetch(`${SECRETS_BASE}/health`); 
 }
 
 // API calls
@@ -294,6 +306,68 @@ export async function validatePolicy(payload: {
   return xfetch(`${POLICY_BASE}/validate`, {
     method: "POST",
     headers: { "x-api-key": POLICY_KEY },
+    body: payload,
+  });
+}
+
+export async function validateSecrets(payload: {
+  text: string;
+  action_on_fail?: "mask" | "filter" | "refrain" | "reask";
+  categories?: string[];
+  return_spans?: boolean;
+}) {
+  if (SECRETS_BASE === "mock") {
+    // Mock secrets detection
+    const secretPatterns = [
+      { pattern: /AKIA[0-9A-Z]{16}/g, type: "AWS_ACCESS_KEY_ID", category: "CLOUD" },
+      { pattern: /sk_live_[0-9a-zA-Z]{24}/g, type: "STRIPE_SECRET", category: "PAYMENTS" },
+      { pattern: /-----BEGIN.*PRIVATE KEY-----/g, type: "PRIVATE_KEY", category: "CRYPTO" },
+      { pattern: /ghp_[0-9a-zA-Z]{36}/g, type: "GITHUB_TOKEN", category: "DEV" }
+    ];
+    
+    const detected = [];
+    let cleanText = payload.text;
+    
+    for (const { pattern, type, category } of secretPatterns) {
+      const matches = payload.text.matchAll(pattern);
+      for (const match of matches) {
+        detected.push({
+          type: "secret",
+          id: type,
+          category,
+          engine: "regex",
+          severity: 5,
+          start: match.index,
+          end: match.index + match[0].length,
+          snippet: match[0].substring(0, 10) + "..."
+        });
+        cleanText = cleanText.replace(match[0], "***");
+      }
+    }
+    
+    return {
+      status: detected.length > 0 ? "fixed" : "pass",
+      clean_text: detected.length > 0 ? cleanText : payload.text,
+      flagged: detected,
+      steps: [
+        {
+          name: "regex+entropy",
+          passed: detected.length === 0,
+          details: {
+            hits: detected.length,
+            enable_regex: true,
+            enable_entropy: true,
+            entropy_threshold: 4.0
+          }
+        }
+      ],
+      reasons: detected.length > 0 ? ["Secrets masked"] : []
+    };
+  }
+  
+  return xfetch(`${SECRETS_BASE}/validate`, {
+    method: "POST",
+    headers: { "x-api-key": SECRETS_KEY },
     body: payload,
   });
 }
