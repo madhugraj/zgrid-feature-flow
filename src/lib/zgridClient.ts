@@ -7,21 +7,28 @@ let PII_KEY  = import.meta.env.VITE_PII_API_KEY || "supersecret123";
 let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "https://41eb0925df35.ngrok-free.app";
 let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
 
+let JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
+let JAIL_KEY  = import.meta.env.VITE_JAIL_API_KEY || "supersecret123";
+
 // Configuration helpers
 export function setServiceConfig(config: {
   piiEndpoint?: string;
   piiApiKey?: string;
   toxEndpoint?: string;
   toxApiKey?: string;
+  jailEndpoint?: string;
+  jailApiKey?: string;
 }) {
   if (config.piiEndpoint) PII_BASE = config.piiEndpoint;
   if (config.piiApiKey) PII_KEY = config.piiApiKey;
   if (config.toxEndpoint) TOX_BASE = config.toxEndpoint;
   if (config.toxApiKey) TOX_KEY = config.toxApiKey;
+  if (config.jailEndpoint) JAIL_BASE = config.jailEndpoint;
+  if (config.jailApiKey) JAIL_KEY = config.jailApiKey;
 }
 
 export function getServiceConfig() {
-  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY };
+  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY, JAIL_BASE, JAIL_KEY };
 }
 
 // single fetch with timeout + helpful errors
@@ -72,6 +79,11 @@ export async function healthPII() {
 export async function healthTox() { 
   if (TOX_BASE === "mock") return { status: "ok", service: "tox-mock" };
   return xfetch(`${TOX_BASE}/health`); 
+}
+
+export async function healthJail() { 
+  if (JAIL_BASE === "mock") return { status: "ok", service: "jail-mock" };
+  return xfetch(`${JAIL_BASE}/health`); 
 }
 
 // API calls
@@ -136,6 +148,50 @@ export async function validateTox(payload: {
   return xfetch(`${TOX_BASE}/validate`, {
     method: "POST",
     headers: { "x-api-key": TOX_KEY },
+    body: payload,
+  });
+}
+
+export async function validateJailbreak(payload: {
+  text: string;
+  threshold?: number;
+  action_on_fail?: "filter" | "refrain" | "reask";
+  enable_similarity?: boolean;
+  return_spans?: boolean;
+}) {
+  if (JAIL_BASE === "mock") {
+    // Mock jailbreak detection
+    const jailbreakPatterns = ["ignore all previous", "dan", "pretend to be", "act as", "jailbreak"];
+    const hasJailbreak = jailbreakPatterns.some(pattern => 
+      payload.text.toLowerCase().includes(pattern)
+    );
+    
+    return {
+      status: hasJailbreak ? "blocked" : "pass",
+      clean_text: hasJailbreak ? "" : payload.text,
+      flagged: hasJailbreak ? [
+        { type: "jailbreak", score: 0.85 },
+        { type: "rule", rule: "JAILBREAK_PATTERN", span: [0, 10], token: "detected pattern" }
+      ] : [],
+      scores: {
+        classifier: hasJailbreak ? 0.85 : 0.15,
+        similarity: null,
+        rule_hits: hasJailbreak ? 1 : 0
+      },
+      steps: [
+        {
+          name: "classifier",
+          passed: !hasJailbreak,
+          details: { score: hasJailbreak ? 0.85 : 0.15, threshold: payload.threshold || 0.5 }
+        }
+      ],
+      reasons: hasJailbreak ? ["Jailbreak attempt detected"] : []
+    };
+  }
+  
+  return xfetch(`${JAIL_BASE}/validate`, {
+    method: "POST",
+    headers: { "x-api-key": JAIL_KEY },
     body: payload,
   });
 }

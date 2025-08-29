@@ -9,6 +9,7 @@ import Collection from "./pages/Collection";
 import About from "./pages/About";
 import PiiDocs from "./pages/PiiDocs";
 import ToxDocs from "./pages/ToxDocs";
+import JailbreakDocs from "./pages/JailbreakDocs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/docs/pii-protection" element={<PiiDocs />} />
             <Route path="/docs/toxicity-protection" element={<ToxDocs />} />
+            <Route path="/docs/jailbreak-detection" element={<JailbreakDocs />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
