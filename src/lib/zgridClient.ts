@@ -10,6 +10,12 @@ let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
 let JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
 let JAIL_KEY  = import.meta.env.VITE_JAIL_API_KEY || "supersecret123";
 
+let BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "http://localhost:8004";
+let BAN_KEY  = import.meta.env.VITE_BAN_API_KEY || "supersecret123";
+
+let POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "http://localhost:8003";
+let POLICY_KEY  = import.meta.env.VITE_POLICY_API_KEY || "supersecret123";
+
 // Configuration helpers
 export function setServiceConfig(config: {
   piiEndpoint?: string;
@@ -18,6 +24,10 @@ export function setServiceConfig(config: {
   toxApiKey?: string;
   jailEndpoint?: string;
   jailApiKey?: string;
+  banEndpoint?: string;
+  banApiKey?: string;
+  policyEndpoint?: string;
+  policyApiKey?: string;
 }) {
   if (config.piiEndpoint) PII_BASE = config.piiEndpoint;
   if (config.piiApiKey) PII_KEY = config.piiApiKey;
@@ -25,10 +35,14 @@ export function setServiceConfig(config: {
   if (config.toxApiKey) TOX_KEY = config.toxApiKey;
   if (config.jailEndpoint) JAIL_BASE = config.jailEndpoint;
   if (config.jailApiKey) JAIL_KEY = config.jailApiKey;
+  if (config.banEndpoint) BAN_BASE = config.banEndpoint;
+  if (config.banApiKey) BAN_KEY = config.banApiKey;
+  if (config.policyEndpoint) POLICY_BASE = config.policyEndpoint;
+  if (config.policyApiKey) POLICY_KEY = config.policyApiKey;
 }
 
 export function getServiceConfig() {
-  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY, JAIL_BASE, JAIL_KEY };
+  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY, JAIL_BASE, JAIL_KEY, BAN_BASE, BAN_KEY, POLICY_BASE, POLICY_KEY };
 }
 
 // single fetch with timeout + helpful errors
@@ -84,6 +98,16 @@ export async function healthTox() {
 export async function healthJail() { 
   if (JAIL_BASE === "mock") return { status: "ok", service: "jail-mock" };
   return xfetch(`${JAIL_BASE}/health`); 
+}
+
+export async function healthBan() { 
+  if (BAN_BASE === "mock") return { status: "ok", service: "ban-mock" };
+  return xfetch(`${BAN_BASE}/health`); 
+}
+
+export async function healthPolicy() { 
+  if (POLICY_BASE === "mock") return { status: "ok", service: "policy-mock" };
+  return xfetch(`${POLICY_BASE}/health`); 
 }
 
 // API calls
@@ -192,6 +216,84 @@ export async function validateJailbreak(payload: {
   return xfetch(`${JAIL_BASE}/validate`, {
     method: "POST",
     headers: { "x-api-key": JAIL_KEY },
+    body: payload,
+  });
+}
+
+export async function validateBan(payload: {
+  text: string;
+  mode?: "exact" | "whole_word" | "substring" | "regex";
+  action_on_fail?: "mask" | "filter" | "refrain" | "reask";
+  lists?: string[];
+  case_sensitive?: boolean;
+  return_spans?: boolean;
+}) {
+  if (BAN_BASE === "mock") {
+    // Mock ban detection
+    const bannedTerms = ["scam", "violence", "hate", "fraud", "illegal"];
+    const hasBanned = bannedTerms.some(term => 
+      payload.text.toLowerCase().includes(term)
+    );
+    
+    return {
+      status: hasBanned ? "fixed" : "pass",
+      clean_text: hasBanned ? payload.text.replace(/scam|violence|hate|fraud|illegal/gi, "***") : payload.text,
+      flagged: hasBanned ? [
+        { type: "ban", token: "detected term", list: "default", span: [0, 10] }
+      ] : [],
+      steps: [
+        {
+          name: "banlist",
+          passed: !hasBanned,
+          details: { hits: hasBanned ? 1 : 0, mode: payload.mode || "whole_word" }
+        }
+      ],
+      reasons: hasBanned ? ["Terms masked"] : []
+    };
+  }
+  
+  return xfetch(`${BAN_BASE}/validate`, {
+    method: "POST",
+    headers: { "x-api-key": BAN_KEY },
+    body: payload,
+  });
+}
+
+export async function validatePolicy(payload: {
+  text: string;
+  role?: "user" | "assistant" | "system";
+  action_on_fail?: "filter" | "refrain" | "reask";
+  policy?: string;
+  return_spans?: boolean;
+}) {
+  if (POLICY_BASE === "mock") {
+    // Mock policy moderation
+    const violatingTerms = ["bomb", "kill", "violence", "illegal", "drugs"];
+    const hasViolation = violatingTerms.some(term => 
+      payload.text.toLowerCase().includes(term)
+    );
+    
+    return {
+      status: hasViolation ? "blocked" : "pass",
+      clean_text: hasViolation ? "" : payload.text,
+      decision: hasViolation ? "disallowed" : "allowed",
+      violations: hasViolation ? [
+        { category: "Illicit behavior", evidence: "detected violation" }
+      ] : [],
+      steps: [
+        {
+          name: "llamaguard",
+          passed: !hasViolation,
+          details: { model: "LlamaGuard-7B.Q4_K_M.gguf", ctx: 4096, temp: 0 }
+        }
+      ],
+      reasons: hasViolation ? ["Policy violation"] : []
+    };
+  }
+  
+  return xfetch(`${POLICY_BASE}/validate`, {
+    method: "POST",
+    headers: { "x-api-key": POLICY_KEY },
     body: payload,
   });
 }
