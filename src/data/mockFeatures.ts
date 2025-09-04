@@ -124,7 +124,7 @@ export const mockFeatures: Feature[] = [
     "exampleInput": "Given I open the page, When I click login, Then I see dashboard",
     "exampleOutput": "[VALID INPUT]",
     "repoDependency": "Guardrails Hub",
-    "referenceLink": "https://hub.guardrailsai.com/validator/guardrails/cucumber_expression_match",
+    "referenceLink": "/docs/format-validation",
     "tags": [
       "format",
       "regex",

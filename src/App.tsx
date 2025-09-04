@@ -13,6 +13,8 @@ import JailbreakDocs from "./pages/JailbreakDocs";
 import BanDocs from "./pages/BanDocs";
 import PolicyDocs from "./pages/PolicyDocs";
 import SecretsDocs from "./pages/SecretsDocs";
+import FormatDocs from "./pages/FormatDocs";
+import AdminPanel from "@/components/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/docs/ban-bias-safety" element={<BanDocs />} />
             <Route path="/docs/policy-moderation" element={<PolicyDocs />} />
             <Route path="/docs/secrets-detection" element={<SecretsDocs />} />
+            <Route path="/docs/format-validation" element={<FormatDocs />} />
+            <Route path="/admin" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

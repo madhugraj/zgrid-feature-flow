@@ -1,4 +1,4 @@
-type FetchOptions = { method?: "GET" | "POST"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
+type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
 // Default endpoints - using your ngrok URLs
 let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "https://62db46e0d53a.ngrok-free.app";
@@ -19,37 +19,72 @@ let POLICY_KEY  = import.meta.env.VITE_POLICY_API_KEY || "supersecret123";
 let SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "http://localhost:8005";
 let SECRETS_KEY  = import.meta.env.VITE_SECRETS_API_KEY || "supersecret123";
 
+let FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "http://localhost:8006";
+let FORMAT_KEY  = import.meta.env.VITE_FORMAT_API_KEY || "supersecret123";
+
+// Admin API Keys (separate from regular keys)
+let PII_ADMIN_KEY = import.meta.env.VITE_PII_ADMIN_KEY || "piiprivileged123";
+let JAIL_ADMIN_KEY = import.meta.env.VITE_JAIL_ADMIN_KEY || "jailprivileged123";
+let BAN_ADMIN_KEY = import.meta.env.VITE_BAN_ADMIN_KEY || "banprivileged123";
+let POLICY_ADMIN_KEY = import.meta.env.VITE_POLICY_ADMIN_KEY || "policyprivileged123";
+let SECRETS_ADMIN_KEY = import.meta.env.VITE_SECRETS_ADMIN_KEY || "secretsprivileged123";
+let FORMAT_ADMIN_KEY = import.meta.env.VITE_FORMAT_ADMIN_KEY || "formatprivileged123";
+
 // Configuration helpers
 export function setServiceConfig(config: {
   piiEndpoint?: string;
   piiApiKey?: string;
+  piiAdminKey?: string;
   toxEndpoint?: string;
   toxApiKey?: string;
   jailEndpoint?: string;
   jailApiKey?: string;
+  jailAdminKey?: string;
   banEndpoint?: string;
   banApiKey?: string;
+  banAdminKey?: string;
   policyEndpoint?: string;
   policyApiKey?: string;
+  policyAdminKey?: string;
   secretsEndpoint?: string;
   secretsApiKey?: string;
+  secretsAdminKey?: string;
+  formatEndpoint?: string;
+  formatApiKey?: string;
+  formatAdminKey?: string;
 }) {
   if (config.piiEndpoint) PII_BASE = config.piiEndpoint;
   if (config.piiApiKey) PII_KEY = config.piiApiKey;
+  if (config.piiAdminKey) PII_ADMIN_KEY = config.piiAdminKey;
   if (config.toxEndpoint) TOX_BASE = config.toxEndpoint;
   if (config.toxApiKey) TOX_KEY = config.toxApiKey;
   if (config.jailEndpoint) JAIL_BASE = config.jailEndpoint;
   if (config.jailApiKey) JAIL_KEY = config.jailApiKey;
+  if (config.jailAdminKey) JAIL_ADMIN_KEY = config.jailAdminKey;
   if (config.banEndpoint) BAN_BASE = config.banEndpoint;
   if (config.banApiKey) BAN_KEY = config.banApiKey;
+  if (config.banAdminKey) BAN_ADMIN_KEY = config.banAdminKey;
   if (config.policyEndpoint) POLICY_BASE = config.policyEndpoint;
   if (config.policyApiKey) POLICY_KEY = config.policyApiKey;
+  if (config.policyAdminKey) POLICY_ADMIN_KEY = config.policyAdminKey;
   if (config.secretsEndpoint) SECRETS_BASE = config.secretsEndpoint;
   if (config.secretsApiKey) SECRETS_KEY = config.secretsApiKey;
+  if (config.secretsAdminKey) SECRETS_ADMIN_KEY = config.secretsAdminKey;
+  if (config.formatEndpoint) FORMAT_BASE = config.formatEndpoint;
+  if (config.formatApiKey) FORMAT_KEY = config.formatApiKey;
+  if (config.formatAdminKey) FORMAT_ADMIN_KEY = config.formatAdminKey;
 }
 
 export function getServiceConfig() {
-  return { PII_BASE, PII_KEY, TOX_BASE, TOX_KEY, JAIL_BASE, JAIL_KEY, BAN_BASE, BAN_KEY, POLICY_BASE, POLICY_KEY, SECRETS_BASE, SECRETS_KEY };
+  return { 
+    PII_BASE, PII_KEY, PII_ADMIN_KEY,
+    TOX_BASE, TOX_KEY,
+    JAIL_BASE, JAIL_KEY, JAIL_ADMIN_KEY,
+    BAN_BASE, BAN_KEY, BAN_ADMIN_KEY,
+    POLICY_BASE, POLICY_KEY, POLICY_ADMIN_KEY,
+    SECRETS_BASE, SECRETS_KEY, SECRETS_ADMIN_KEY,
+    FORMAT_BASE, FORMAT_KEY, FORMAT_ADMIN_KEY
+  };
 }
 
 // single fetch with timeout + helpful errors
@@ -120,6 +155,11 @@ export async function healthPolicy() {
 export async function healthSecrets() { 
   if (SECRETS_BASE === "mock") return { status: "ok", service: "secrets-mock" };
   return xfetch(`${SECRETS_BASE}/health`); 
+}
+
+export async function healthFormat() { 
+  if (FORMAT_BASE === "mock") return { status: "ok", service: "format-mock" };
+  return xfetch(`${FORMAT_BASE}/health`); 
 }
 
 // API calls
@@ -369,5 +409,331 @@ export async function validateSecrets(payload: {
     method: "POST",
     headers: { "x-api-key": SECRETS_KEY },
     body: payload,
+  });
+}
+
+export async function validateFormat(payload: {
+  text: string;
+  expressions?: string[];
+  action_on_fail?: "filter" | "refrain" | "reask";
+  return_spans?: boolean;
+}) {
+  if (FORMAT_BASE === "mock") {
+    // Mock format validation using Cucumber expressions
+    const expressions = payload.expressions || ["Given {word}, When {word}, Then {word}"];
+    const hasValidFormat = expressions.some(expr => {
+      // Simple mock validation - check for basic Cucumber structure
+      const pattern = expr.replace(/{word}/g, "\\w+").replace(/{int}/g, "\\d+");
+      const regex = new RegExp(pattern, "i");
+      return regex.test(payload.text);
+    });
+    
+    return {
+      status: hasValidFormat ? "pass" : "blocked",
+      clean_text: hasValidFormat ? payload.text : "",
+      matched_expressions: hasValidFormat ? expressions.slice(0, 1) : [],
+      steps: [
+        {
+          name: "cucumber_expressions",
+          passed: hasValidFormat,
+          details: { expressions_checked: expressions.length }
+        }
+      ],
+      reasons: hasValidFormat ? [] : ["Format validation failed"]
+    };
+  }
+  
+  return xfetch(`${FORMAT_BASE}/validate`, {
+    method: "POST",
+    headers: { "x-api-key": FORMAT_KEY },
+    body: payload,
+  });
+}
+
+// Admin API functions
+export async function addPIIEntities(config: {
+  custom_entities?: Array<{
+    type: string;
+    pattern: string;
+    description: string;
+  }>;
+  custom_placeholders?: Array<{
+    entity_type: string;
+    placeholder: string;
+  }>;
+  custom_thresholds?: Array<{
+    entity_type: string;
+    threshold: number;
+  }>;
+}) {
+  if (PII_BASE === "mock") {
+    return { status: "success", message: "Custom PII entities added (mock)" };
+  }
+  
+  return xfetch(`${PII_BASE}/admin/entities`, {
+    method: "POST",
+    headers: { "x-api-key": PII_ADMIN_KEY },
+    body: config,
+  });
+}
+
+export async function getPIIEntities() {
+  if (PII_BASE === "mock") {
+    return { 
+      custom_entities: [
+        { type: "EMPLOYEE_ID", pattern: "\\bEMP\\d{6}\\b", description: "Employee ID format" }
+      ],
+      custom_placeholders: [
+        { entity_type: "EMPLOYEE_ID", placeholder: "[EMP_ID]" }
+      ],
+      custom_thresholds: [
+        { entity_type: "EMPLOYEE_ID", threshold: 0.8 }
+      ]
+    };
+  }
+  
+  return xfetch(`${PII_BASE}/admin/entities`, {
+    headers: { "x-api-key": PII_ADMIN_KEY },
+  });
+}
+
+export async function clearPIIEntities() {
+  if (PII_BASE === "mock") {
+    return { status: "success", message: "Custom PII entities cleared (mock)" };
+  }
+  
+  return xfetch(`${PII_BASE}/admin/entities`, {
+    method: "DELETE",
+    headers: { "x-api-key": PII_ADMIN_KEY },
+  });
+}
+
+export async function addJailbreakRules(config: {
+  custom_rules?: Array<{
+    id: string;
+    pattern: string;
+    flags?: string;
+  }>;
+  custom_similarity_texts?: {
+    texts: string[];
+  };
+}) {
+  if (JAIL_BASE === "mock") {
+    return { status: "success", message: "Custom jailbreak rules added (mock)" };
+  }
+  
+  return xfetch(`${JAIL_BASE}/admin/rules`, {
+    method: "POST",
+    headers: { "x-api-key": JAIL_ADMIN_KEY },
+    body: config,
+  });
+}
+
+export async function getJailbreakRules() {
+  if (JAIL_BASE === "mock") {
+    return {
+      custom_rules: [
+        { id: "COMPANY_SECRETS", pattern: "\\b(ignore|disregard)\\s+(company|internal)\\s+(policies|rules)\\b", flags: "i" }
+      ],
+      custom_similarity_texts: {
+        texts: ["ignore all company policies", "disregard internal guidelines"]
+      }
+    };
+  }
+  
+  return xfetch(`${JAIL_BASE}/admin/rules`, {
+    headers: { "x-api-key": JAIL_ADMIN_KEY },
+  });
+}
+
+export async function clearJailbreakRules() {
+  if (JAIL_BASE === "mock") {
+    return { status: "success", message: "Custom jailbreak rules cleared (mock)" };
+  }
+  
+  return xfetch(`${JAIL_BASE}/admin/rules`, {
+    method: "DELETE",
+    headers: { "x-api-key": JAIL_ADMIN_KEY },
+  });
+}
+
+export async function addPolicyRules(config: {
+  custom_policies?: Array<{
+    category: string;
+    keywords: string[];
+    severity: string;
+  }>;
+  custom_categories?: Array<{
+    name: string;
+    description: string;
+  }>;
+}) {
+  if (POLICY_BASE === "mock") {
+    return { status: "success", message: "Custom policy rules added (mock)" };
+  }
+  
+  return xfetch(`${POLICY_BASE}/admin/policies`, {
+    method: "POST",
+    headers: { "x-api-key": POLICY_ADMIN_KEY },
+    body: config,
+  });
+}
+
+export async function getPolicyRules() {
+  if (POLICY_BASE === "mock") {
+    return {
+      custom_policies: [
+        { category: "COMPANY_SECRETS", keywords: ["confidential", "proprietary"], severity: "HIGH" }
+      ],
+      custom_categories: [
+        { name: "CompanyPolicy", description: "Internal company policy violations" }
+      ]
+    };
+  }
+  
+  return xfetch(`${POLICY_BASE}/admin/policies`, {
+    headers: { "x-api-key": POLICY_ADMIN_KEY },
+  });
+}
+
+export async function clearPolicyRules() {
+  if (POLICY_BASE === "mock") {
+    return { status: "success", message: "Custom policy rules cleared (mock)" };
+  }
+  
+  return xfetch(`${POLICY_BASE}/admin/policies`, {
+    method: "DELETE",
+    headers: { "x-api-key": POLICY_ADMIN_KEY },
+  });
+}
+
+export async function addBanRules(config: {
+  custom_bans?: Array<{
+    pattern: string;
+    type: "literal" | "regex";
+    category: string;
+    severity: number;
+  }>;
+  custom_allow?: string[];
+}) {
+  if (BAN_BASE === "mock") {
+    return { status: "success", message: "Custom ban rules added (mock)" };
+  }
+  
+  return xfetch(`${BAN_BASE}/admin/banlists`, {
+    method: "POST",
+    headers: { "x-api-key": BAN_ADMIN_KEY },
+    body: config,
+  });
+}
+
+export async function getBanRules() {
+  if (BAN_BASE === "mock") {
+    return {
+      custom_bans: [
+        { pattern: "competitorxyz", type: "literal", category: "COMPETITOR", severity: 4 }
+      ],
+      custom_allow: ["our company discussion", "legitimate business"]
+    };
+  }
+  
+  return xfetch(`${BAN_BASE}/admin/banlists`, {
+    headers: { "x-api-key": BAN_ADMIN_KEY },
+  });
+}
+
+export async function clearBanRules() {
+  if (BAN_BASE === "mock") {
+    return { status: "success", message: "Custom ban rules cleared (mock)" };
+  }
+  
+  return xfetch(`${BAN_BASE}/admin/banlists`, {
+    method: "DELETE",
+    headers: { "x-api-key": BAN_ADMIN_KEY },
+  });
+}
+
+export async function addSecretsSignatures(config: {
+  custom_signatures?: Array<{
+    id: string;
+    category: string;
+    type: "regex";
+    pattern: string;
+    severity: number;
+  }>;
+}) {
+  if (SECRETS_BASE === "mock") {
+    return { status: "success", message: "Custom secrets signatures added (mock)" };
+  }
+  
+  return xfetch(`${SECRETS_BASE}/admin/signatures`, {
+    method: "POST",
+    headers: { "x-api-key": SECRETS_ADMIN_KEY },
+    body: config,
+  });
+}
+
+export async function getSecretsSignatures() {
+  if (SECRETS_BASE === "mock") {
+    return {
+      custom_signatures: [
+        { id: "CUSTOM_API_KEY", category: "INTERNAL", type: "regex", pattern: "\\bck_[A-Za-z0-9]{32}\\b", severity: 4 }
+      ]
+    };
+  }
+  
+  return xfetch(`${SECRETS_BASE}/admin/signatures`, {
+    headers: { "x-api-key": SECRETS_ADMIN_KEY },
+  });
+}
+
+export async function clearSecretsSignatures() {
+  if (SECRETS_BASE === "mock") {
+    return { status: "success", message: "Custom secrets signatures cleared (mock)" };
+  }
+  
+  return xfetch(`${SECRETS_BASE}/admin/signatures`, {
+    method: "DELETE",
+    headers: { "x-api-key": SECRETS_ADMIN_KEY },
+  });
+}
+
+export async function addFormatExpressions(config: {
+  custom_expressions?: string[];
+}) {
+  if (FORMAT_BASE === "mock") {
+    return { status: "success", message: "Custom format expressions added (mock)" };
+  }
+  
+  return xfetch(`${FORMAT_BASE}/admin/expressions`, {
+    method: "POST",
+    headers: { "x-api-key": FORMAT_ADMIN_KEY },
+    body: config,
+  });
+}
+
+export async function getFormatExpressions() {
+  if (FORMAT_BASE === "mock") {
+    return {
+      custom_expressions: [
+        "Email {email}, phone {phone}",
+        "Name: {word}, Age: {int}"
+      ]
+    };
+  }
+  
+  return xfetch(`${FORMAT_BASE}/admin/expressions`, {
+    headers: { "x-api-key": FORMAT_ADMIN_KEY },
+  });
+}
+
+export async function clearFormatExpressions() {
+  if (FORMAT_BASE === "mock") {
+    return { status: "success", message: "Custom format expressions cleared (mock)" };
+  }
+  
+  return xfetch(`${FORMAT_BASE}/admin/expressions`, {
+    method: "DELETE",
+    headers: { "x-api-key": FORMAT_ADMIN_KEY },
   });
 }
