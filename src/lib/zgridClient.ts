@@ -1,10 +1,10 @@
 type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
-// Default endpoints - using your ngrok URLs
-let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "https://62db46e0d53a.ngrok-free.app";
+// Default endpoints - using localhost ports for FastAPI services
+let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://localhost:8000";
 let PII_KEY  = import.meta.env.VITE_PII_API_KEY || "supersecret123";
 
-let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "https://41eb0925df35.ngrok-free.app";
+let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "http://localhost:8001";
 let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
 
 let JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
