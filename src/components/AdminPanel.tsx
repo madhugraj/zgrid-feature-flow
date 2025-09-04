@@ -214,10 +214,56 @@ export default function AdminPanel() {
               <CardHeader>
                 <CardTitle>PII Protection Configuration</CardTitle>
                 <CardDescription>
-                  Add custom entities, placeholders, and thresholds for PII detection.
+                  Configure custom PII patterns, placeholders, and thresholds. Standard entities include: EMAIL_ADDRESS, PHONE_NUMBER, CREDIT_CARD, US_SSN, PERSON, LOCATION, IN_AADHAAR, IN_PAN.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* Quick Templates Section */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Quick Templates</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setPiiEntities(`[
+  {
+    "type": "EMPLOYEE_ID",
+    "pattern": "\\\\bEMP\\\\d{6}\\\\b",
+    "description": "Employee ID format EMP123456"
+  }
+]`)}
+                    >
+                      Employee ID
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setPiiEntities(`[
+  {
+    "type": "PROJECT_CODE",
+    "pattern": "\\\\b[A-Z]{2,4}-\\\\d{3,4}\\\\b",
+    "description": "Project codes like XX-123 or XXXX-1234"
+  }
+]`)}
+                    >
+                      Project Code
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setPiiEntities(`[
+  {
+    "type": "REF_NUMBER",
+    "pattern": "\\\\bREF:\\\\d{4,8}\\\\b",
+    "description": "Reference numbers like REF:12345678"
+  }
+]`)}
+                    >
+                      Reference Number
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="pii-entities">Custom Entities (JSON)</Label>
                   <Textarea
@@ -225,9 +271,14 @@ export default function AdminPanel() {
                     placeholder='[{"type": "EMPLOYEE_ID", "pattern": "\\\\bEMP\\\\d{6}\\\\b", "description": "Employee ID format"}]'
                     value={piiEntities}
                     onChange={(e) => setPiiEntities(e.target.value)}
-                    rows={4}
+                    rows={6}
+                    className="font-mono text-sm"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Define custom PII patterns using regex. Use double backslashes (\\\\) for regex escaping.
+                  </p>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="pii-placeholders">Custom Placeholders (JSON)</Label>
                   <Textarea
@@ -236,8 +287,13 @@ export default function AdminPanel() {
                     value={piiPlaceholders}
                     onChange={(e) => setPiiPlaceholders(e.target.value)}
                     rows={3}
+                    className="font-mono text-sm"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Define custom replacement text for detected entities.
+                  </p>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="pii-thresholds">Custom Thresholds (JSON)</Label>
                   <Textarea
@@ -246,8 +302,13 @@ export default function AdminPanel() {
                     value={piiThresholds}
                     onChange={(e) => setPiiThresholds(e.target.value)}
                     rows={3}
+                    className="font-mono text-sm"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Set confidence thresholds (0.0-1.0) for entity detection.
+                  </p>
                 </div>
+
                 <div className="flex gap-2">
                   <Button onClick={handleAddPII} disabled={loading}>
                     Add Configuration
