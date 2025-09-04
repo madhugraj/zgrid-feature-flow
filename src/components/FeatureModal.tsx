@@ -213,13 +213,15 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               description: `Found ${result.entities?.length || 0} PII entities.`,
             });
           } catch (error) {
+            console.error('PII Validation Error Details:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             setSimulationResult({ 
               status: 'blocked', 
-              error: 'Failed to connect to PII service. Check that your environment variables are set correctly.' 
+              error: `PII service error: ${errorMessage}` 
             });
             toast({
               title: "Service Connection Error", 
-              description: "Cannot connect to PII service. Check configuration.",
+              description: `Cannot connect to PII service: ${errorMessage}`,
               variant: "destructive"
             });
           }

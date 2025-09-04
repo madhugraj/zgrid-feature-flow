@@ -92,7 +92,8 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
   
-  console.log(`Making request to: ${url}`, { method, headers, body });
+  console.log(`🚀 xfetch: Making request to: ${url}`, { method, headers, body });
+  console.log(`🌐 Current origin: ${window.location.origin}`);
   
   try {
     const r = await fetch(url, {
@@ -110,19 +111,33 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
     });
     
     clearTimeout(to);
-    console.log(`Response status: ${r.status} for ${url}`);
+    console.log(`✅ Response status: ${r.status} for ${url}`, {
+      status: r.status,
+      statusText: r.statusText,
+      headers: Object.fromEntries(r.headers.entries())
+    });
     
     if (!r.ok) {
       const errorText = await r.text();
-      console.error(`HTTP Error ${r.status}:`, errorText);
+      console.error(`❌ HTTP Error ${r.status}:`, errorText);
       throw new Error(`${r.status} ${r.statusText}: ${errorText}`);
     }
     
-    return r.json();
+    const result = await r.json();
+    console.log(`📝 Response data:`, result);
+    return result;
   } catch (e) {
     clearTimeout(to);
-    console.error(`Fetch failed for ${url}:`, e);
-    throw new Error(`Network error: ${e.message} - This might be a CORS issue. Make sure your local services allow cross-origin requests from ${window.location.origin}`);
+    console.error(`💥 Fetch failed for ${url}:`, e);
+    
+    // More specific error handling
+    if (e.name === 'AbortError') {
+      throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+    } else if (e instanceof TypeError) {
+      throw new Error(`Network error: Cannot connect to ${url}. Make sure the service is running on the correct port.`);
+    } else {
+      throw new Error(`Network error: ${e.message} - This might be a CORS issue. Make sure your local services allow cross-origin requests from ${window.location.origin}`);
+    }
   }
 }
 
