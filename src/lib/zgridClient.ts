@@ -164,6 +164,8 @@ export async function healthFormat() {
 
 // API calls
 export async function validatePII(text: string, entities?: string[], return_spans?: boolean) {
+  console.log('validatePII called with:', { text, entities, return_spans, PII_BASE });
+  
   if (PII_BASE === "mock") {
     // Mock PII detection
     const emails = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g) || [];
@@ -186,15 +188,29 @@ export async function validatePII(text: string, entities?: string[], return_span
     };
   }
   
-  return xfetch(`${PII_BASE}/validate`, {
-    method: "POST",
-    headers: { "X-API-Key": PII_KEY },
-    body: { 
-      text, 
-      entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER"], 
-      return_spans: return_spans || true 
-    },
-  });
+  const requestBody = { 
+    text, 
+    entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER"], 
+    return_spans: return_spans || true 
+  };
+  
+  console.log('PII Request URL:', `${PII_BASE}/validate`);
+  console.log('PII Request Body:', requestBody);
+  console.log('PII Request Headers:', { "X-API-Key": PII_KEY });
+  
+  try {
+    const result = await xfetch(`${PII_BASE}/validate`, {
+      method: "POST",
+      headers: { "X-API-Key": PII_KEY },
+      body: requestBody,
+    });
+    
+    console.log('PII Response:', result);
+    return result;
+  } catch (error) {
+    console.error('PII Validation Error:', error);
+    throw error;
+  }
 }
 
 export async function validateTox(text: string, return_spans?: boolean) {
