@@ -211,12 +211,12 @@ export async function validatePII(text: string, entities?: string[], return_span
   
   console.log('PII Request URL:', `${PII_BASE}/validate`);
   console.log('PII Request Body:', requestBody);
-  console.log('PII Request Headers:', { "X-API-Key": PII_KEY });
+  console.log('PII Request Headers:', { "x-api-key": PII_KEY });
   
   try {
     const result = await xfetch(`${PII_BASE}/validate`, {
       method: "POST",
-      headers: { "X-API-Key": PII_KEY },
+      headers: { "x-api-key": PII_KEY },
       body: requestBody,
     });
     
@@ -253,7 +253,7 @@ export async function validateTox(text: string, return_spans?: boolean) {
   
   return xfetch(`${TOX_BASE}/validate`, {
     method: "POST",
-    headers: { "X-API-Key": TOX_KEY },
+    headers: { "x-api-key": TOX_KEY },
     body: { text, return_spans: return_spans || true },
   });
 }
@@ -291,7 +291,7 @@ export async function validateJailbreak(text: string, return_spans?: boolean) {
   
   return xfetch(`${JAIL_BASE}/validate`, {
     method: "POST",
-    headers: { "X-API-Key": JAIL_KEY },
+    headers: { "x-api-key": JAIL_KEY },
     body: { text, return_spans: return_spans || true },
   });
 }
@@ -323,7 +323,7 @@ export async function validateBan(text: string, return_spans?: boolean) {
   
   return xfetch(`${BAN_BASE}/validate`, {
     method: "POST",
-    headers: { "X-API-Key": BAN_KEY },
+    headers: { "x-api-key": BAN_KEY },
     body: { text, return_spans: return_spans || true },
   });
 }
@@ -355,7 +355,7 @@ export async function validatePolicy(text: string, return_spans?: boolean) {
   
   return xfetch(`${POLICY_BASE}/validate`, {
     method: "POST",
-    headers: { "X-API-Key": POLICY_KEY },
+    headers: { "x-api-key": POLICY_KEY },
     body: { text, return_spans: return_spans || true },
   });
 }
@@ -412,7 +412,7 @@ export async function validateSecrets(text: string, return_spans?: boolean) {
   
   return xfetch(`${SECRETS_BASE}/validate`, {
     method: "POST",
-    headers: { "X-API-Key": SECRETS_KEY },
+    headers: { "x-api-key": SECRETS_KEY },
     body: { text, return_spans: return_spans || true },
   });
 }
@@ -447,7 +447,7 @@ export async function validateFormat(text: string, expressions?: string[], retur
   
   return xfetch(`${FORMAT_BASE}/validate`, {
     method: "POST",
-    headers: { "X-API-Key": FORMAT_KEY },
+    headers: { "x-api-key": FORMAT_KEY },
     body: { text, expressions: expressions || ["Email {email}, phone {phone}"], return_spans: return_spans || true },
   });
 }
@@ -474,7 +474,7 @@ export async function addPIIEntities(config: {
   
   return xfetch(`${PII_BASE}/admin/entities`, {
     method: "POST",
-    headers: { "X-API-Key": PII_ADMIN_KEY },
+    headers: { "x-api-key": PII_ADMIN_KEY },
     body: config,
   });
 }
@@ -495,7 +495,7 @@ export async function getPIIEntities() {
   }
   
   return xfetch(`${PII_BASE}/admin/entities`, {
-    headers: { "X-API-Key": PII_ADMIN_KEY },
+    headers: { "x-api-key": PII_ADMIN_KEY },
   });
 }
 
@@ -506,7 +506,7 @@ export async function clearPIIEntities() {
   
   return xfetch(`${PII_BASE}/admin/entities`, {
     method: "DELETE",
-    headers: { "X-API-Key": PII_ADMIN_KEY },
+    headers: { "x-api-key": PII_ADMIN_KEY },
   });
 }
 
@@ -526,7 +526,7 @@ export async function addJailbreakRules(config: {
   
   return xfetch(`${JAIL_BASE}/admin/rules`, {
     method: "POST",
-    headers: { "X-API-Key": JAIL_ADMIN_KEY },
+    headers: { "x-api-key": JAIL_ADMIN_KEY },
     body: config,
   });
 }
@@ -544,7 +544,7 @@ export async function getJailbreakRules() {
   }
   
   return xfetch(`${JAIL_BASE}/admin/rules`, {
-    headers: { "X-API-Key": JAIL_ADMIN_KEY },
+    headers: { "x-api-key": JAIL_ADMIN_KEY },
   });
 }
 
@@ -555,7 +555,7 @@ export async function clearJailbreakRules() {
   
   return xfetch(`${JAIL_BASE}/admin/rules`, {
     method: "DELETE",
-    headers: { "X-API-Key": JAIL_ADMIN_KEY },
+    headers: { "x-api-key": JAIL_ADMIN_KEY },
   });
 }
 
@@ -576,7 +576,7 @@ export async function addPolicyRules(config: {
   
   return xfetch(`${POLICY_BASE}/admin/policies`, {
     method: "POST",
-    headers: { "X-API-Key": POLICY_ADMIN_KEY },
+    headers: { "x-api-key": POLICY_ADMIN_KEY },
     body: config,
   });
 }
@@ -594,7 +594,7 @@ export async function getPolicyRules() {
   }
   
   return xfetch(`${POLICY_BASE}/admin/policies`, {
-    headers: { "X-API-Key": POLICY_ADMIN_KEY },
+    headers: { "x-api-key": POLICY_ADMIN_KEY },
   });
 }
 
@@ -605,7 +605,7 @@ export async function clearPolicyRules() {
   
   return xfetch(`${POLICY_BASE}/admin/policies`, {
     method: "DELETE",
-    headers: { "X-API-Key": POLICY_ADMIN_KEY },
+    headers: { "x-api-key": POLICY_ADMIN_KEY },
   });
 }
 
@@ -624,7 +624,7 @@ export async function addBanRules(config: {
   
   return xfetch(`${BAN_BASE}/admin/banlists`, {
     method: "POST",
-    headers: { "X-API-Key": BAN_ADMIN_KEY },
+    headers: { "x-api-key": BAN_ADMIN_KEY },
     body: config,
   });
 }
@@ -640,7 +640,7 @@ export async function getBanRules() {
   }
   
   return xfetch(`${BAN_BASE}/admin/banlists`, {
-    headers: { "X-API-Key": BAN_ADMIN_KEY },
+    headers: { "x-api-key": BAN_ADMIN_KEY },
   });
 }
 
@@ -651,7 +651,7 @@ export async function clearBanRules() {
   
   return xfetch(`${BAN_BASE}/admin/banlists`, {
     method: "DELETE",
-    headers: { "X-API-Key": BAN_ADMIN_KEY },
+    headers: { "x-api-key": BAN_ADMIN_KEY },
   });
 }
 
@@ -670,7 +670,7 @@ export async function addSecretsSignatures(config: {
   
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
     method: "POST",
-    headers: { "X-API-Key": SECRETS_ADMIN_KEY },
+    headers: { "x-api-key": SECRETS_ADMIN_KEY },
     body: config,
   });
 }
@@ -685,7 +685,7 @@ export async function getSecretsSignatures() {
   }
   
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
-    headers: { "X-API-Key": SECRETS_ADMIN_KEY },
+    headers: { "x-api-key": SECRETS_ADMIN_KEY },
   });
 }
 
@@ -696,7 +696,7 @@ export async function clearSecretsSignatures() {
   
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
     method: "DELETE",
-    headers: { "X-API-Key": SECRETS_ADMIN_KEY },
+    headers: { "x-api-key": SECRETS_ADMIN_KEY },
   });
 }
 
@@ -709,7 +709,7 @@ export async function addFormatExpressions(config: {
   
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     method: "POST",
-    headers: { "X-API-Key": FORMAT_ADMIN_KEY },
+    headers: { "x-api-key": FORMAT_ADMIN_KEY },
     body: config,
   });
 }
@@ -725,7 +725,7 @@ export async function getFormatExpressions() {
   }
   
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
-    headers: { "X-API-Key": FORMAT_ADMIN_KEY },
+    headers: { "x-api-key": FORMAT_ADMIN_KEY },
   });
 }
 
@@ -736,6 +736,6 @@ export async function clearFormatExpressions() {
   
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     method: "DELETE",
-    headers: { "X-API-Key": FORMAT_ADMIN_KEY },
+    headers: { "x-api-key": FORMAT_ADMIN_KEY },
   });
 }
