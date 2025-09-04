@@ -62,7 +62,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
   const detectToxicity = async (text: string) => {
     try {
-      return await validateTox({ text });
+      return await validateTox(text);
     } catch (error) {
       console.error('Toxicity Detection Error:', error);
       throw error;
@@ -110,11 +110,11 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
   const getServiceApiFunction = (featureCode: string) => {
     switch (featureCode) {
-      case 'ZG0002': return (text: string) => validateJailbreak({ text });
-      case 'ZG0003': return (text: string) => validatePolicy({ text, role: 'user' });
-      case 'ZG0005': return (text: string) => validateBan({ text });
-      case 'ZG0006': return (text: string) => validateSecrets({ text });
-      case 'ZG0007': return (text: string) => validateFormat({ text });
+      case 'ZG0002': return (text: string) => validateJailbreak(text);
+      case 'ZG0003': return (text: string) => validatePolicy(text);
+      case 'ZG0005': return (text: string) => validateBan(text);
+      case 'ZG0006': return (text: string) => validateSecrets(text);
+      case 'ZG0007': return (text: string) => validateFormat(text);
       default: return null;
     }
   };

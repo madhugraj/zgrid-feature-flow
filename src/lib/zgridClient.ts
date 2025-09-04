@@ -163,7 +163,7 @@ export async function healthFormat() {
 }
 
 // API calls
-export async function validatePII(text: string, extra?: Record<string,unknown>) {
+export async function validatePII(text: string, entities?: string[], return_spans?: boolean) {
   if (PII_BASE === "mock") {
     // Mock PII detection
     const emails = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g) || [];
@@ -171,80 +171,73 @@ export async function validatePII(text: string, extra?: Record<string,unknown>) 
     const names = text.match(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g) || [];
     
     return {
-      results: [
+      status: (emails.length > 0 || phones.length > 0 || names.length > 0) ? "fixed" : "pass",
+      redacted_text: text
+        .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "[EMAIL]")
+        .replace(/\b\d{3}-\d{3}-\d{4}\b|\b\(\d{3}\)\s*\d{3}-\d{4}\b/g, "[PHONE]")
+        .replace(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, "[PERSON]"),
+      entities: [
         ...emails.map(email => ({ entity_type: "EMAIL_ADDRESS", text: email, score: 0.9 })),
         ...phones.map(phone => ({ entity_type: "PHONE_NUMBER", text: phone, score: 0.9 })),
         ...names.map(name => ({ entity_type: "PERSON", text: name, score: 0.8 }))
       ],
-      anonymized_text: text
-        .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "[EMAIL]")
-        .replace(/\b\d{3}-\d{3}-\d{4}\b|\b\(\d{3}\)\s*\d{3}-\d{4}\b/g, "[PHONE]")
-        .replace(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, "[PERSON]"),
-      original_text: text
+      steps: [{ name: "PII_detection", passed: true, details: { entities_found: emails.length + phones.length + names.length } }],
+      reasons: (emails.length > 0 || phones.length > 0 || names.length > 0) ? ["PII redacted"] : ["No PII detected"]
     };
   }
   
   return xfetch(`${PII_BASE}/validate`, {
     method: "POST",
-    headers: { "x-api-key": PII_KEY },
-    body: { text, ...(extra || {}) },
+    headers: { "X-API-Key": PII_KEY },
+    body: { 
+      text, 
+      entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER"], 
+      return_spans: return_spans || true 
+    },
   });
 }
 
-export async function validateTox(payload: {
-  text: string;
-  mode?: "sentence" | "text";
-  tox_threshold?: number;
-  labels?: string[];
-  action_on_fail?: "remove_sentences" | "remove_all" | "redact";
-  profanity_enabled?: boolean;
-  profanity_action?: "mask" | "remove";
-}) {
+export async function validateTox(text: string, return_spans?: boolean) {
   if (TOX_BASE === "mock") {
     // Mock toxicity detection
     const toxicWords = ["hate", "stupid", "idiot", "damn"];
-    const hasToxicity = toxicWords.some(word => payload.text.toLowerCase().includes(word));
+    const hasToxicity = toxicWords.some(word => text.toLowerCase().includes(word));
     
     return {
-      is_toxic: hasToxicity,
-      toxicity_score: hasToxicity ? 0.7 : 0.1,
-      cleaned_text: hasToxicity ? payload.text.replace(/hate|stupid|idiot|damn/gi, "***") : payload.text,
-      original_text: payload.text,
-      details: {
+      status: hasToxicity ? "blocked" : "pass",
+      clean_text: hasToxicity ? text.replace(/hate|stupid|idiot|damn/gi, "***") : text,
+      flagged: hasToxicity ? [{ type: "toxicity", score: 0.7 }] : [],
+      scores: {
         toxicity: hasToxicity ? 0.7 : 0.1,
         severe_toxicity: 0.1,
         obscene: hasToxicity ? 0.3 : 0.05,
         threat: 0.05,
         insult: hasToxicity ? 0.5 : 0.05,
         identity_attack: 0.05
-      }
+      },
+      steps: [{ name: "detoxify", passed: !hasToxicity, details: { model: "unbiased", threshold: 0.5 } }],
+      reasons: hasToxicity ? ["No toxicity or profanity detected"] : ["Toxic content detected"]
     };
   }
   
   return xfetch(`${TOX_BASE}/validate`, {
     method: "POST",
-    headers: { "x-api-key": TOX_KEY },
-    body: payload,
+    headers: { "X-API-Key": TOX_KEY },
+    body: { text, return_spans: return_spans || true },
   });
 }
 
-export async function validateJailbreak(payload: {
-  text: string;
-  threshold?: number;
-  action_on_fail?: "filter" | "refrain" | "reask";
-  enable_similarity?: boolean;
-  return_spans?: boolean;
-}) {
+export async function validateJailbreak(text: string, return_spans?: boolean) {
   if (JAIL_BASE === "mock") {
     // Mock jailbreak detection
     const jailbreakPatterns = ["ignore all previous", "dan", "pretend to be", "act as", "jailbreak"];
     const hasJailbreak = jailbreakPatterns.some(pattern => 
-      payload.text.toLowerCase().includes(pattern)
+      text.toLowerCase().includes(pattern)
     );
     
     return {
       status: hasJailbreak ? "blocked" : "pass",
-      clean_text: hasJailbreak ? "" : payload.text,
+      clean_text: hasJailbreak ? "" : text,
       flagged: hasJailbreak ? [
         { type: "jailbreak", score: 0.85 },
         { type: "rule", rule: "JAILBREAK_PATTERN", span: [0, 10], token: "detected pattern" }
@@ -258,38 +251,31 @@ export async function validateJailbreak(payload: {
         {
           name: "classifier",
           passed: !hasJailbreak,
-          details: { score: hasJailbreak ? 0.85 : 0.15, threshold: payload.threshold || 0.5 }
+          details: { score: hasJailbreak ? 0.85 : 0.15, threshold: 0.5 }
         }
       ],
-      reasons: hasJailbreak ? ["Jailbreak attempt detected"] : []
+      reasons: hasJailbreak ? ["Request blocked"] : []
     };
   }
   
   return xfetch(`${JAIL_BASE}/validate`, {
     method: "POST",
-    headers: { "x-api-key": JAIL_KEY },
-    body: payload,
+    headers: { "X-API-Key": JAIL_KEY },
+    body: { text, return_spans: return_spans || true },
   });
 }
 
-export async function validateBan(payload: {
-  text: string;
-  mode?: "exact" | "whole_word" | "substring" | "regex";
-  action_on_fail?: "mask" | "filter" | "refrain" | "reask";
-  lists?: string[];
-  case_sensitive?: boolean;
-  return_spans?: boolean;
-}) {
+export async function validateBan(text: string, return_spans?: boolean) {
   if (BAN_BASE === "mock") {
     // Mock ban detection
     const bannedTerms = ["scam", "violence", "hate", "fraud", "illegal"];
     const hasBanned = bannedTerms.some(term => 
-      payload.text.toLowerCase().includes(term)
+      text.toLowerCase().includes(term)
     );
     
     return {
-      status: hasBanned ? "fixed" : "pass",
-      clean_text: hasBanned ? payload.text.replace(/scam|violence|hate|fraud|illegal/gi, "***") : payload.text,
+      status: hasBanned ? "blocked" : "pass",
+      clean_text: hasBanned ? "" : text,
       flagged: hasBanned ? [
         { type: "ban", token: "detected term", list: "default", span: [0, 10] }
       ] : [],
@@ -297,39 +283,32 @@ export async function validateBan(payload: {
         {
           name: "banlist",
           passed: !hasBanned,
-          details: { hits: hasBanned ? 1 : 0, mode: payload.mode || "whole_word" }
+          details: { hits: hasBanned ? 1 : 0, mode: "whole_word" }
         }
       ],
-      reasons: hasBanned ? ["Terms masked"] : []
+      reasons: hasBanned ? ["Blocked"] : []
     };
   }
   
   return xfetch(`${BAN_BASE}/validate`, {
     method: "POST",
-    headers: { "x-api-key": BAN_KEY },
-    body: payload,
+    headers: { "X-API-Key": BAN_KEY },
+    body: { text, return_spans: return_spans || true },
   });
 }
 
-export async function validatePolicy(payload: {
-  text: string;
-  role?: "user" | "assistant" | "system";
-  action_on_fail?: "filter" | "refrain" | "reask";
-  policy?: string;
-  return_spans?: boolean;
-}) {
+export async function validatePolicy(text: string, return_spans?: boolean) {
   if (POLICY_BASE === "mock") {
     // Mock policy moderation
     const violatingTerms = ["bomb", "kill", "violence", "illegal", "drugs"];
     const hasViolation = violatingTerms.some(term => 
-      payload.text.toLowerCase().includes(term)
+      text.toLowerCase().includes(term)
     );
     
     return {
       status: hasViolation ? "blocked" : "pass",
-      clean_text: hasViolation ? "" : payload.text,
-      decision: hasViolation ? "disallowed" : "allowed",
-      violations: hasViolation ? [
+      clean_text: hasViolation ? "" : text,
+      flagged: hasViolation ? [
         { category: "Illicit behavior", evidence: "detected violation" }
       ] : [],
       steps: [
@@ -339,23 +318,18 @@ export async function validatePolicy(payload: {
           details: { model: "LlamaGuard-7B.Q4_K_M.gguf", ctx: 4096, temp: 0 }
         }
       ],
-      reasons: hasViolation ? ["Policy violation"] : []
+      reasons: hasViolation ? ["Blocked"] : []
     };
   }
   
   return xfetch(`${POLICY_BASE}/validate`, {
     method: "POST",
-    headers: { "x-api-key": POLICY_KEY },
-    body: payload,
+    headers: { "X-API-Key": POLICY_KEY },
+    body: { text, return_spans: return_spans || true },
   });
 }
 
-export async function validateSecrets(payload: {
-  text: string;
-  action_on_fail?: "mask" | "filter" | "refrain" | "reask";
-  categories?: string[];
-  return_spans?: boolean;
-}) {
+export async function validateSecrets(text: string, return_spans?: boolean) {
   if (SECRETS_BASE === "mock") {
     // Mock secrets detection
     const secretPatterns = [
@@ -366,10 +340,10 @@ export async function validateSecrets(payload: {
     ];
     
     const detected = [];
-    let cleanText = payload.text;
+    let cleanText = text;
     
     for (const { pattern, type, category } of secretPatterns) {
-      const matches = payload.text.matchAll(pattern);
+      const matches = text.matchAll(pattern);
       for (const match of matches) {
         detected.push({
           type: "secret",
@@ -386,8 +360,8 @@ export async function validateSecrets(payload: {
     }
     
     return {
-      status: detected.length > 0 ? "fixed" : "pass",
-      clean_text: detected.length > 0 ? cleanText : payload.text,
+      status: detected.length > 0 ? "blocked" : "pass",
+      clean_text: detected.length > 0 ? "" : text,
       flagged: detected,
       steps: [
         {
@@ -401,52 +375,49 @@ export async function validateSecrets(payload: {
           }
         }
       ],
-      reasons: detected.length > 0 ? ["Secrets masked"] : []
+      reasons: detected.length > 0 ? ["Secrets blocked"] : []
     };
   }
   
   return xfetch(`${SECRETS_BASE}/validate`, {
     method: "POST",
-    headers: { "x-api-key": SECRETS_KEY },
-    body: payload,
+    headers: { "X-API-Key": SECRETS_KEY },
+    body: { text, return_spans: return_spans || true },
   });
 }
 
-export async function validateFormat(payload: {
-  text: string;
-  expressions?: string[];
-  action_on_fail?: "filter" | "refrain" | "reask";
-  return_spans?: boolean;
-}) {
+export async function validateFormat(text: string, expressions?: string[], return_spans?: boolean) {
   if (FORMAT_BASE === "mock") {
     // Mock format validation using Cucumber expressions
-    const expressions = payload.expressions || ["Given {word}, When {word}, Then {word}"];
-    const hasValidFormat = expressions.some(expr => {
+    const customExpressions = expressions || ["Email {email}, phone {phone}"];
+    const hasValidFormat = customExpressions.some(expr => {
       // Simple mock validation - check for basic Cucumber structure
-      const pattern = expr.replace(/{word}/g, "\\w+").replace(/{int}/g, "\\d+");
+      const pattern = expr.replace(/{word}/g, "\\w+").replace(/{int}/g, "\\d+").replace(/{email}/g, "[\\w._%+-]+@[\\w.-]+\\.[A-Za-z]{2,}").replace(/{phone}/g, "[\\d\\-\\+\\(\\)\\s]+");
       const regex = new RegExp(pattern, "i");
-      return regex.test(payload.text);
+      return regex.test(text);
     });
     
     return {
       status: hasValidFormat ? "pass" : "blocked",
-      clean_text: hasValidFormat ? payload.text : "",
-      matched_expressions: hasValidFormat ? expressions.slice(0, 1) : [],
+      clean_text: hasValidFormat ? text : "",
+      matched_expression: hasValidFormat ? customExpressions[0] : null,
+      variables: hasValidFormat ? { email: "john@example.com", phone: "+1-555-123-4567" } : {},
+      spans: hasValidFormat ? { email: [6, 21], phone: [29, 45] } : {},
       steps: [
         {
           name: "cucumber_expressions",
           passed: hasValidFormat,
-          details: { expressions_checked: expressions.length }
+          details: { expressions_checked: customExpressions.length }
         }
       ],
-      reasons: hasValidFormat ? [] : ["Format validation failed"]
+      reasons: hasValidFormat ? ["Input matches expected format"] : ["Format validation failed"]
     };
   }
   
   return xfetch(`${FORMAT_BASE}/validate`, {
     method: "POST",
-    headers: { "x-api-key": FORMAT_KEY },
-    body: payload,
+    headers: { "X-API-Key": FORMAT_KEY },
+    body: { text, expressions: expressions || ["Email {email}, phone {phone}"], return_spans: return_spans || true },
   });
 }
 
@@ -472,7 +443,7 @@ export async function addPIIEntities(config: {
   
   return xfetch(`${PII_BASE}/admin/entities`, {
     method: "POST",
-    headers: { "x-api-key": PII_ADMIN_KEY },
+    headers: { "X-API-Key": PII_ADMIN_KEY },
     body: config,
   });
 }
@@ -493,7 +464,7 @@ export async function getPIIEntities() {
   }
   
   return xfetch(`${PII_BASE}/admin/entities`, {
-    headers: { "x-api-key": PII_ADMIN_KEY },
+    headers: { "X-API-Key": PII_ADMIN_KEY },
   });
 }
 
@@ -504,7 +475,7 @@ export async function clearPIIEntities() {
   
   return xfetch(`${PII_BASE}/admin/entities`, {
     method: "DELETE",
-    headers: { "x-api-key": PII_ADMIN_KEY },
+    headers: { "X-API-Key": PII_ADMIN_KEY },
   });
 }
 
@@ -524,7 +495,7 @@ export async function addJailbreakRules(config: {
   
   return xfetch(`${JAIL_BASE}/admin/rules`, {
     method: "POST",
-    headers: { "x-api-key": JAIL_ADMIN_KEY },
+    headers: { "X-API-Key": JAIL_ADMIN_KEY },
     body: config,
   });
 }
@@ -542,7 +513,7 @@ export async function getJailbreakRules() {
   }
   
   return xfetch(`${JAIL_BASE}/admin/rules`, {
-    headers: { "x-api-key": JAIL_ADMIN_KEY },
+    headers: { "X-API-Key": JAIL_ADMIN_KEY },
   });
 }
 
@@ -553,7 +524,7 @@ export async function clearJailbreakRules() {
   
   return xfetch(`${JAIL_BASE}/admin/rules`, {
     method: "DELETE",
-    headers: { "x-api-key": JAIL_ADMIN_KEY },
+    headers: { "X-API-Key": JAIL_ADMIN_KEY },
   });
 }
 
@@ -574,7 +545,7 @@ export async function addPolicyRules(config: {
   
   return xfetch(`${POLICY_BASE}/admin/policies`, {
     method: "POST",
-    headers: { "x-api-key": POLICY_ADMIN_KEY },
+    headers: { "X-API-Key": POLICY_ADMIN_KEY },
     body: config,
   });
 }
@@ -592,7 +563,7 @@ export async function getPolicyRules() {
   }
   
   return xfetch(`${POLICY_BASE}/admin/policies`, {
-    headers: { "x-api-key": POLICY_ADMIN_KEY },
+    headers: { "X-API-Key": POLICY_ADMIN_KEY },
   });
 }
 
@@ -603,7 +574,7 @@ export async function clearPolicyRules() {
   
   return xfetch(`${POLICY_BASE}/admin/policies`, {
     method: "DELETE",
-    headers: { "x-api-key": POLICY_ADMIN_KEY },
+    headers: { "X-API-Key": POLICY_ADMIN_KEY },
   });
 }
 
@@ -622,7 +593,7 @@ export async function addBanRules(config: {
   
   return xfetch(`${BAN_BASE}/admin/banlists`, {
     method: "POST",
-    headers: { "x-api-key": BAN_ADMIN_KEY },
+    headers: { "X-API-Key": BAN_ADMIN_KEY },
     body: config,
   });
 }
@@ -638,7 +609,7 @@ export async function getBanRules() {
   }
   
   return xfetch(`${BAN_BASE}/admin/banlists`, {
-    headers: { "x-api-key": BAN_ADMIN_KEY },
+    headers: { "X-API-Key": BAN_ADMIN_KEY },
   });
 }
 
@@ -649,7 +620,7 @@ export async function clearBanRules() {
   
   return xfetch(`${BAN_BASE}/admin/banlists`, {
     method: "DELETE",
-    headers: { "x-api-key": BAN_ADMIN_KEY },
+    headers: { "X-API-Key": BAN_ADMIN_KEY },
   });
 }
 
@@ -668,7 +639,7 @@ export async function addSecretsSignatures(config: {
   
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
     method: "POST",
-    headers: { "x-api-key": SECRETS_ADMIN_KEY },
+    headers: { "X-API-Key": SECRETS_ADMIN_KEY },
     body: config,
   });
 }
@@ -683,7 +654,7 @@ export async function getSecretsSignatures() {
   }
   
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
-    headers: { "x-api-key": SECRETS_ADMIN_KEY },
+    headers: { "X-API-Key": SECRETS_ADMIN_KEY },
   });
 }
 
@@ -694,7 +665,7 @@ export async function clearSecretsSignatures() {
   
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
     method: "DELETE",
-    headers: { "x-api-key": SECRETS_ADMIN_KEY },
+    headers: { "X-API-Key": SECRETS_ADMIN_KEY },
   });
 }
 
@@ -707,7 +678,7 @@ export async function addFormatExpressions(config: {
   
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     method: "POST",
-    headers: { "x-api-key": FORMAT_ADMIN_KEY },
+    headers: { "X-API-Key": FORMAT_ADMIN_KEY },
     body: config,
   });
 }
@@ -723,7 +694,7 @@ export async function getFormatExpressions() {
   }
   
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
-    headers: { "x-api-key": FORMAT_ADMIN_KEY },
+    headers: { "X-API-Key": FORMAT_ADMIN_KEY },
   });
 }
 
@@ -734,6 +705,6 @@ export async function clearFormatExpressions() {
   
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     method: "DELETE",
-    headers: { "x-api-key": FORMAT_ADMIN_KEY },
+    headers: { "X-API-Key": FORMAT_ADMIN_KEY },
   });
 }
