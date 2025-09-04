@@ -21,14 +21,26 @@ export default function ServiceStatus() {
   const [format, setFormat] = useState<ServiceState>("...");
 
   useEffect(() => {
-    // Check all service health endpoints
-    healthPII().then(() => setPii("ok")).catch(() => setPii("fail"));
-    healthTox().then(() => setTox("ok")).catch(() => setTox("fail"));
-    healthJail().then(() => setJail("ok")).catch(() => setJail("fail"));
-    healthBan().then(() => setBan("ok")).catch(() => setBan("fail"));
-    healthPolicy().then(() => setPolicy("ok")).catch(() => setPolicy("fail"));
-    healthSecrets().then(() => setSecrets("ok")).catch(() => setSecrets("fail"));
-    healthFormat().then(() => setFormat("ok")).catch(() => setFormat("fail"));
+    // Check all service health endpoints with detailed logging
+    const checkService = async (name: string, healthFn: () => Promise<any>, setState: (state: ServiceState) => void) => {
+      try {
+        console.log(`🔍 Checking ${name} service...`);
+        await healthFn();
+        console.log(`✅ ${name} service is running`);
+        setState("ok");
+      } catch (error) {
+        console.error(`❌ ${name} service failed:`, error);
+        setState("fail");
+      }
+    };
+
+    checkService("PII", healthPII, setPii);
+    checkService("Toxicity", healthTox, setTox);
+    checkService("Jailbreak", healthJail, setJail);
+    checkService("Ban", healthBan, setBan);
+    checkService("Policy", healthPolicy, setPolicy);
+    checkService("Secrets", healthSecrets, setSecrets);
+    checkService("Format", healthFormat, setFormat);
   }, []);
 
   const pill = (label: string, state: ServiceState) => (
