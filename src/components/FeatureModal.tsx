@@ -8,9 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
-import { validatePII, validateTox } from '@/lib/zgridClient';
+import { validatePII, validateTox, validateJailbreak, validatePolicy, validateBan, validateSecrets, validateFormat,
+  addPIIEntities, addJailbreakRules, addPolicyRules, addBanRules, addSecretsSignatures, addFormatExpressions } from '@/lib/zgridClient';
 
 
 interface FeatureModalProps {
@@ -34,7 +38,9 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
     scores?: Record<string, number>;
     error?: string;
   }>({ status: null });
-  const [useLocalServices, setUseLocalServices] = useState(false);
+  const [useLocalServices, setUseLocalServices] = useState(true); // Default to true for FastAPI services
+  const [adminConfig, setAdminConfig] = useState('');
+  const [isAddingConfig, setIsAddingConfig] = useState(false);
 
   const handleAddToCart = () => {
     addItem(feature);
@@ -60,6 +66,129 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
     } catch (error) {
       console.error('Toxicity Detection Error:', error);
       throw error;
+    }
+  };
+
+  const handleAddCustomConfig = async () => {
+    if (!adminConfig.trim()) return;
+    
+    setIsAddingConfig(true);
+    try {
+      const config = JSON.parse(adminConfig);
+      
+      if (feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) {
+        await addPIIEntities(config);
+        toast({ title: "PII Config Added", description: "Custom PII entities added successfully." });
+      } else if (feature.featureCode === 'ZG0002' || feature.name.toLowerCase().includes('jailbreak')) {
+        await addJailbreakRules(config);
+        toast({ title: "Jailbreak Rules Added", description: "Custom jailbreak rules added successfully." });
+      } else if (feature.featureCode === 'ZG0003' || feature.name.toLowerCase().includes('policy')) {
+        await addPolicyRules(config);
+        toast({ title: "Policy Rules Added", description: "Custom policy rules added successfully." });
+      } else if (feature.featureCode === 'ZG0005' || feature.name.toLowerCase().includes('ban')) {
+        await addBanRules(config);
+        toast({ title: "Ban Rules Added", description: "Custom ban rules added successfully." });
+      } else if (feature.featureCode === 'ZG0006' || feature.name.toLowerCase().includes('secret')) {
+        await addSecretsSignatures(config);
+        toast({ title: "Secret Signatures Added", description: "Custom secret signatures added successfully." });
+      } else if (feature.featureCode === 'ZG0007' || feature.name.toLowerCase().includes('format')) {
+        await addFormatExpressions(config);
+        toast({ title: "Format Expressions Added", description: "Custom format expressions added successfully." });
+      }
+      
+      setAdminConfig('');
+    } catch (error) {
+      toast({
+        title: "Configuration Error",
+        description: "Failed to add custom configuration. Please check your JSON format.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAddingConfig(false);
+    }
+  };
+
+  const getServiceApiFunction = (featureCode: string) => {
+    switch (featureCode) {
+      case 'ZG0002': return (text: string) => validateJailbreak({ text });
+      case 'ZG0003': return (text: string) => validatePolicy({ text, role: 'user' });
+      case 'ZG0005': return (text: string) => validateBan({ text });
+      case 'ZG0006': return (text: string) => validateSecrets({ text });
+      case 'ZG0007': return (text: string) => validateFormat({ text });
+      default: return null;
+    }
+  };
+
+  const getAdminConfigExample = (featureCode: string) => {
+    switch (featureCode) {
+      case 'ZG0001':
+        return `{
+  "custom_entities": [
+    {
+      "type": "EMPLOYEE_ID",
+      "pattern": "\\\\bEMP\\\\d{6}\\\\b",
+      "description": "Employee ID format"
+    }
+  ],
+  "custom_placeholders": [
+    {
+      "entity_type": "EMPLOYEE_ID",
+      "placeholder": "[EMP_ID]"
+    }
+  ]
+}`;
+      case 'ZG0002':
+        return `{
+  "custom_rules": [
+    {
+      "id": "COMPANY_SECRETS",
+      "pattern": "\\\\b(ignore|disregard)\\\\s+(company|internal)\\\\s+(policies|rules)\\\\b",
+      "flags": "i"
+    }
+  ]
+}`;
+      case 'ZG0003':
+        return `{
+  "custom_policies": [
+    {
+      "category": "COMPANY_SECRETS",
+      "keywords": ["confidential", "proprietary"],
+      "severity": "HIGH"
+    }
+  ]
+}`;
+      case 'ZG0005':
+        return `{
+  "custom_bans": [
+    {
+      "pattern": "competitor_name",
+      "type": "literal",
+      "category": "COMPETITOR",
+      "severity": 4
+    }
+  ]
+}`;
+      case 'ZG0006':
+        return `{
+  "custom_signatures": [
+    {
+      "id": "CUSTOM_API_KEY",
+      "category": "INTERNAL",
+      "type": "regex",
+      "pattern": "\\\\bck_[A-Za-z0-9]{32}\\\\b",
+      "severity": 4
+    }
+  ]
+}`;
+      case 'ZG0007':
+        return `{
+  "custom_expressions": [
+    "Email {email}, phone {phone}",
+    "Name: {word}, Age: {int}"
+  ]
+}`;
+      default:
+        return '{}';
     }
   };
 
@@ -184,24 +313,54 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           });
         }
       } else {
-        // Simple simulation logic for other features
-        const isModeration = feature.category.includes('Moderation') || feature.category.includes('Safety');
-        const isBanList = feature.name.toLowerCase().includes('bias') || feature.name.toLowerCase().includes('ban');
+        // Handle other services with FastAPI integration
+        const apiFunction = getServiceApiFunction(feature.featureCode);
         
-        if (isModeration || isBanList) {
-          const input = tryItInput.toLowerCase();
-          const unsafePatterns = ['harm', 'violence', 'hate', 'attack', '****', 'kill', 'destroy'];
-          const hasUnsafeContent = unsafePatterns.some(pattern => input.includes(pattern));
-          
-          setSimulationResult({ status: hasUnsafeContent ? 'blocked' : 'passed' });
+        if (useLocalServices && apiFunction) {
+          try {
+            const result = await apiFunction(tryItInput);
+            setSimulationResult({
+              status: result.status || 'passed',
+              cleanText: result.clean_text || result.cleaned_text,
+              flagged: result.flagged || result.violations,
+              scores: result.scores
+            });
+            
+            toast({
+              title: `${feature.name} Detection Complete`,
+              description: `Status: ${result.status}`,
+            });
+          } catch (error) {
+            setSimulationResult({ 
+              status: 'blocked', 
+              error: `Failed to connect to ${feature.name} service. Check that your service is running on the expected port.` 
+            });
+            toast({
+              title: "Service Connection Error",
+              description: `Cannot connect to ${feature.name} service.`,
+              variant: "destructive"
+            });
+          }
         } else {
-          setSimulationResult({ status: 'passed' });
-        }
+          // Mock simulation for other features
+          const isModeration = feature.category.includes('Moderation') || feature.category.includes('Safety');
+          const isBanList = feature.name.toLowerCase().includes('bias') || feature.name.toLowerCase().includes('ban');
+          
+          if (isModeration || isBanList) {
+            const input = tryItInput.toLowerCase();
+            const unsafePatterns = ['harm', 'violence', 'hate', 'attack', '****', 'kill', 'destroy'];
+            const hasUnsafeContent = unsafePatterns.some(pattern => input.includes(pattern));
+            
+            setSimulationResult({ status: hasUnsafeContent ? 'blocked' : 'passed' });
+          } else {
+            setSimulationResult({ status: 'passed' });
+          }
 
-        toast({
-          title: "Simulation Complete",
-          description: `Feature ${feature.name} simulation executed successfully.`,
-        });
+          toast({
+            title: "Simulation Complete (Demo Mode)",
+            description: `Feature ${feature.name} simulation executed successfully.`,
+          });
+        }
       }
     } finally {
       setIsLoading(false);
@@ -294,39 +453,45 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
 
           <Separator />
 
-          {/* Try It Playground */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 justify-between">
-              <div className="flex items-center gap-2">
+          {/* Configuration and Testing */}
+          <Tabs defaultValue="test" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="test">Test & Try</TabsTrigger>
+              <TabsTrigger value="configure">Configure</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="test" className="space-y-4">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Play className="h-5 w-5" />
-                Try It
-              </div>
-            </h3>
+                Try It Live
+              </h3>
             <div className="space-y-4">
-              {/* Service Mode Toggle */}
-              {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii') || 
-                feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity')) && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="useLocalServices"
-                      checked={useLocalServices}
-                      onChange={(e) => setUseLocalServices(e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="useLocalServices" className="text-sm font-medium">
-                      Connect to Real Services
-                    </label>
-                  </div>
-                  
-                  {!useLocalServices && (
-                    <p className="text-xs text-muted-foreground bg-primary/5 p-3 rounded border border-primary/20">
-                      💡 Demo Mode: Using simulated responses. Enable "Connect to Real Services" to test with your deployed backend services.
-                    </p>
-                  )}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="useLocalServices"
+                    checked={useLocalServices}
+                    onChange={(e) => setUseLocalServices(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="useLocalServices" className="text-sm font-medium">
+                    Use FastAPI Services (localhost:8000-8006)
+                  </label>
                 </div>
-              )}
+                
+                {!useLocalServices && (
+                  <p className="text-xs text-muted-foreground bg-primary/5 p-3 rounded border border-primary/20">
+                    💡 Demo Mode: Using simulated responses. Enable "Use FastAPI Services" to test with your deployed services.
+                  </p>
+                )}
+                
+                {useLocalServices && (
+                  <p className="text-xs text-green-600 bg-green-50 p-3 rounded border border-green-200">
+                    🚀 Connected to FastAPI services on localhost ports 8000-8006
+                  </p>
+                )}
+              </div>
               
               <div>
                 <label className="text-sm font-medium mb-2 block">Test Input</label>
@@ -449,7 +614,56 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                 }
               </p>
             </div>
-          </div>
+            </TabsContent>
+
+            <TabsContent value="configure" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5" />
+                    Custom Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    Add custom rules and patterns for {feature.name} before adding to cart.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="adminConfig">Configuration JSON</Label>
+                    <Textarea
+                      id="adminConfig"
+                      placeholder={getAdminConfigExample(feature.featureCode)}
+                      value={adminConfig}
+                      onChange={(e) => setAdminConfig(e.target.value)}
+                      className="min-h-[200px] font-mono text-sm"
+                    />
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleAddCustomConfig}
+                      disabled={!adminConfig.trim() || isAddingConfig}
+                      variant="outline"
+                    >
+                      {isAddingConfig ? 'Adding...' : 'Add Configuration'}
+                    </Button>
+                    <Button 
+                      onClick={() => setAdminConfig('')}
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
+                    <strong>Note:</strong> Custom configurations are added to the service immediately and will affect all future requests.
+                    Test your configuration using the "Test & Try" tab before adding to cart.
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           <Separator />
 
