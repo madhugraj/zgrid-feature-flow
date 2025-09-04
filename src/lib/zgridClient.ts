@@ -205,7 +205,7 @@ export async function validatePII(text: string, entities?: string[], return_span
   
   const requestBody = { 
     text, 
-    entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER"], 
+    entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "PHONE", "LOCATION", "ORGANIZATION"], 
     return_spans: return_spans || true 
   };
   
