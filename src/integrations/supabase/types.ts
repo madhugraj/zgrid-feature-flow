@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      service_configurations: {
+        Row: {
+          ai_generated: boolean
+          confidence_score: number | null
+          config_data: Json
+          config_type: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          sample_inputs: string[] | null
+          service_name: Database["public"]["Enums"]["service_name"]
+          updated_at: string
+        }
+        Insert: {
+          ai_generated?: boolean
+          confidence_score?: number | null
+          config_data: Json
+          config_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sample_inputs?: string[] | null
+          service_name: Database["public"]["Enums"]["service_name"]
+          updated_at?: string
+        }
+        Update: {
+          ai_generated?: boolean
+          confidence_score?: number | null
+          config_data?: Json
+          config_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sample_inputs?: string[] | null
+          service_name?: Database["public"]["Enums"]["service_name"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +64,32 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      service_name:
+        | "PII"
+        | "TOXICITY"
+        | "JAILBREAK"
+        | "BAN"
+        | "POLICY"
+        | "SECRETS"
+        | "FORMAT"
+        | "PHISHING"
+        | "MALWARE"
+        | "SPAM"
+        | "FRAUD"
+        | "NSFW"
+        | "VIOLENCE"
+        | "HARASSMENT"
+        | "HATE_SPEECH"
+        | "MISINFORMATION"
+        | "COPYRIGHT"
+        | "PRIVACY"
+        | "FINANCIAL"
+        | "MEDICAL"
+        | "LEGAL"
+        | "PROFANITY"
+        | "SENTIMENT"
+        | "LANGUAGE"
+        | "COMPLIANCE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +216,34 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      service_name: [
+        "PII",
+        "TOXICITY",
+        "JAILBREAK",
+        "BAN",
+        "POLICY",
+        "SECRETS",
+        "FORMAT",
+        "PHISHING",
+        "MALWARE",
+        "SPAM",
+        "FRAUD",
+        "NSFW",
+        "VIOLENCE",
+        "HARASSMENT",
+        "HATE_SPEECH",
+        "MISINFORMATION",
+        "COPYRIGHT",
+        "PRIVACY",
+        "FINANCIAL",
+        "MEDICAL",
+        "LEGAL",
+        "PROFANITY",
+        "SENTIMENT",
+        "LANGUAGE",
+        "COMPLIANCE",
+      ],
+    },
   },
 } as const

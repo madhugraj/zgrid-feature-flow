@@ -1,536 +1,520 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Trash2, Play, Pause, Sparkles, Plus, RefreshCw, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  addPIIEntities, 
-  getPIIEntities, 
-  clearPIIEntities,
-  addJailbreakRules,
-  getJailbreakRules,
-  clearJailbreakRules,
-  addPolicyRules,
-  getPolicyRules,
-  clearPolicyRules,
-  addBanRules,
-  getBanRules,
-  clearBanRules,
-  addSecretsSignatures,
-  getSecretsSignatures,
-  clearSecretsSignatures,
-  addFormatExpressions,
-  getFormatExpressions,
-  clearFormatExpressions
-} from "@/lib/zgridClient";
+import {
+  ServiceName,
+  ServiceConfiguration,
+  generateAIConfig,
+  getServiceConfigurations,
+  getAllConfigurations,
+  saveConfiguration,
+  updateConfiguration,
+  deleteConfiguration,
+  toggleConfigurationStatus,
+  clearServiceConfigurations,
+  applyConfigurationsToService
+} from "@/lib/serviceConfigApi";
+
+// All 25 services with their display names and config types
+const ALL_SERVICES: { value: ServiceName; label: string; configTypes: string[] }[] = [
+  // Core Services (Original 7)
+  { value: 'PII', label: 'PII Protection', configTypes: ['entities', 'patterns', 'rules'] },
+  { value: 'TOXICITY', label: 'Toxicity Detection', configTypes: ['keywords', 'rules', 'thresholds'] },
+  { value: 'JAILBREAK', label: 'Jailbreak Detection', configTypes: ['patterns', 'rules', 'signatures'] },
+  { value: 'BAN', label: 'Ban/Bias Safety', configTypes: ['rules', 'keywords', 'allowlist'] },
+  { value: 'POLICY', label: 'Policy Moderation', configTypes: ['rules', 'categories', 'policies'] },
+  { value: 'SECRETS', label: 'Secrets Detection', configTypes: ['signatures', 'patterns', 'rules'] },
+  { value: 'FORMAT', label: 'Format Validation', configTypes: ['expressions', 'schemas', 'rules'] },
+  
+  // Extended Services (Additional 18)
+  { value: 'PHISHING', label: 'Phishing Detection', configTypes: ['patterns', 'rules', 'domains'] },
+  { value: 'MALWARE', label: 'Malware Detection', configTypes: ['signatures', 'patterns', 'rules'] },
+  { value: 'SPAM', label: 'Spam Filtering', configTypes: ['keywords', 'rules', 'scoring'] },
+  { value: 'FRAUD', label: 'Fraud Detection', configTypes: ['patterns', 'rules', 'scoring'] },
+  { value: 'NSFW', label: 'NSFW Content Detection', configTypes: ['keywords', 'rules', 'categories'] },
+  { value: 'VIOLENCE', label: 'Violence Detection', configTypes: ['keywords', 'patterns', 'rules'] },
+  { value: 'HARASSMENT', label: 'Harassment Detection', configTypes: ['patterns', 'rules', 'categories'] },
+  { value: 'HATE_SPEECH', label: 'Hate Speech Detection', configTypes: ['patterns', 'keywords', 'rules'] },
+  { value: 'MISINFORMATION', label: 'Misinformation Detection', configTypes: ['patterns', 'rules', 'sources'] },
+  { value: 'COPYRIGHT', label: 'Copyright Protection', configTypes: ['patterns', 'rules', 'signatures'] },
+  { value: 'PRIVACY', label: 'Privacy Protection', configTypes: ['patterns', 'rules', 'entities'] },
+  { value: 'FINANCIAL', label: 'Financial Data Protection', configTypes: ['patterns', 'rules', 'entities'] },
+  { value: 'MEDICAL', label: 'Medical Data Protection', configTypes: ['patterns', 'rules', 'entities'] },
+  { value: 'LEGAL', label: 'Legal Compliance', configTypes: ['rules', 'patterns', 'regulations'] },
+  { value: 'PROFANITY', label: 'Profanity Filtering', configTypes: ['keywords', 'patterns', 'rules'] },
+  { value: 'SENTIMENT', label: 'Sentiment Analysis', configTypes: ['rules', 'thresholds', 'categories'] },
+  { value: 'LANGUAGE', label: 'Language Detection', configTypes: ['patterns', 'rules', 'models'] },
+  { value: 'COMPLIANCE', label: 'Compliance Checking', configTypes: ['rules', 'regulations', 'standards'] }
+];
 
 export default function AdminPanel() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [selectedService, setSelectedService] = useState<ServiceName>('PII');
+  const [selectedConfigType, setSelectedConfigType] = useState('entities');
+  const [configurations, setConfigurations] = useState<ServiceConfiguration[]>([]);
   
-  // PII State
-  const [piiEntities, setPiiEntities] = useState("");
-  const [piiPlaceholders, setPiiPlaceholders] = useState("");
-  const [piiThresholds, setPiiThresholds] = useState("");
+  // AI Generation State
+  const [sampleInputs, setSampleInputs] = useState('');
+  const [description, setDescription] = useState('');
+  const [generatedConfig, setGeneratedConfig] = useState('');
   
-  // Jailbreak State
-  const [jailbreakRules, setJailbreakRules] = useState("");
-  const [jailbreakTexts, setJailbreakTexts] = useState("");
-  
-  // Policy State
-  const [policyRules, setPolicyRules] = useState("");
-  const [policyCategories, setPolicyCategories] = useState("");
-  
-  // Ban State
-  const [banRules, setBanRules] = useState("");
-  const [banAllowList, setBanAllowList] = useState("");
-  
-  // Secrets State
-  const [secretsSignatures, setSecretsSignatures] = useState("");
-  
-  // Format State
-  const [formatExpressions, setFormatExpressions] = useState("");
+  // Manual Configuration State
+  const [manualConfig, setManualConfig] = useState('');
 
-  const handleAddPII = async () => {
+  useEffect(() => {
+    loadConfigurations();
+  }, [selectedService]);
+
+  useEffect(() => {
+    // Reset config type when service changes
+    const serviceConfig = ALL_SERVICES.find(s => s.value === selectedService);
+    if (serviceConfig && !serviceConfig.configTypes.includes(selectedConfigType)) {
+      setSelectedConfigType(serviceConfig.configTypes[0]);
+    }
+  }, [selectedService]);
+
+  const loadConfigurations = async () => {
+    try {
+      const configs = await getServiceConfigurations(selectedService);
+      setConfigurations(configs);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to load configurations: ${error}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGenerateAI = async () => {
+    if (!sampleInputs.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide sample inputs for AI analysis",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const config: any = {};
+      const inputs = sampleInputs.split('\n').filter(line => line.trim());
+      const result = await generateAIConfig({
+        serviceName: selectedService,
+        configType: selectedConfigType,
+        sampleInputs: inputs,
+        description: description || undefined
+      });
+
+      setGeneratedConfig(JSON.stringify(result.configData, null, 2));
+      await loadConfigurations();
       
-      if (piiEntities.trim()) {
-        config.custom_entities = JSON.parse(piiEntities);
-      }
-      if (piiPlaceholders.trim()) {
-        config.custom_placeholders = JSON.parse(piiPlaceholders);
-      }
-      if (piiThresholds.trim()) {
-        config.custom_thresholds = JSON.parse(piiThresholds);
-      }
-      
-      await addPIIEntities(config);
-      toast({ title: "Success", description: "PII configuration added successfully" });
+      toast({
+        title: "Success",
+        description: `AI configuration generated with ${Math.round(result.confidence * 100)}% confidence`,
+      });
     } catch (error) {
-      toast({ title: "Error", description: `Failed to add PII configuration: ${error}`, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: `Failed to generate AI config: ${error}`,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddJailbreak = async () => {
+  const handleSaveManual = async () => {
+    if (!manualConfig.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide configuration data",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const config: any = {};
-      
-      if (jailbreakRules.trim()) {
-        config.custom_rules = JSON.parse(jailbreakRules);
+      let configData;
+      try {
+        configData = JSON.parse(manualConfig);
+      } catch {
+        throw new Error('Invalid JSON format');
       }
-      if (jailbreakTexts.trim()) {
-        config.custom_similarity_texts = { texts: JSON.parse(jailbreakTexts) };
-      }
+
+      await saveConfiguration({
+        service_name: selectedService,
+        config_type: selectedConfigType,
+        config_data: configData,
+        ai_generated: false,
+        description: description || `Manual ${selectedConfigType} configuration`,
+        is_active: true
+      });
+
+      await loadConfigurations();
+      setManualConfig('');
       
-      await addJailbreakRules(config);
-      toast({ title: "Success", description: "Jailbreak rules added successfully" });
+      toast({
+        title: "Success",
+        description: "Configuration saved successfully",
+      });
     } catch (error) {
-      toast({ title: "Error", description: `Failed to add jailbreak rules: ${error}`, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: `Failed to save configuration: ${error}`,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddPolicy = async () => {
+  const handleToggleConfig = async (id: string) => {
+    try {
+      await toggleConfigurationStatus(id);
+      await loadConfigurations();
+      toast({
+        title: "Success",
+        description: "Configuration status updated",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to toggle configuration: ${error}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteConfig = async (id: string) => {
+    try {
+      await deleteConfiguration(id);
+      await loadConfigurations();
+      toast({
+        title: "Success",
+        description: "Configuration deleted",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to delete configuration: ${error}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClearAll = async () => {
     setLoading(true);
     try {
-      const config: any = {};
-      
-      if (policyRules.trim()) {
-        config.custom_policies = JSON.parse(policyRules);
-      }
-      if (policyCategories.trim()) {
-        config.custom_categories = JSON.parse(policyCategories);
-      }
-      
-      await addPolicyRules(config);
-      toast({ title: "Success", description: "Policy rules added successfully" });
+      await clearServiceConfigurations(selectedService);
+      await loadConfigurations();
+      toast({
+        title: "Success",
+        description: `All ${selectedService} configurations cleared`,
+      });
     } catch (error) {
-      toast({ title: "Error", description: `Failed to add policy rules: ${error}`, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: `Failed to clear configurations: ${error}`,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddBan = async () => {
+  const handleApplyConfigs = async () => {
     setLoading(true);
     try {
-      const config: any = {};
-      
-      if (banRules.trim()) {
-        config.custom_bans = JSON.parse(banRules);
-      }
-      if (banAllowList.trim()) {
-        config.custom_allow = JSON.parse(banAllowList);
-      }
-      
-      await addBanRules(config);
-      toast({ title: "Success", description: "Ban rules added successfully" });
+      await applyConfigurationsToService(selectedService);
+      toast({
+        title: "Success",
+        description: `Configurations applied to ${selectedService} service`,
+      });
     } catch (error) {
-      toast({ title: "Error", description: `Failed to add ban rules: ${error}`, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: `Failed to apply configurations: ${error}`,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddSecrets = async () => {
-    setLoading(true);
-    try {
-      const config: any = {};
-      
-      if (secretsSignatures.trim()) {
-        config.custom_signatures = JSON.parse(secretsSignatures);
-      }
-      
-      await addSecretsSignatures(config);
-      toast({ title: "Success", description: "Secrets signatures added successfully" });
-    } catch (error) {
-      toast({ title: "Error", description: `Failed to add secrets signatures: ${error}`, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddFormat = async () => {
-    setLoading(true);
-    try {
-      const config: any = {};
-      
-      if (formatExpressions.trim()) {
-        config.custom_expressions = JSON.parse(formatExpressions);
-      }
-      
-      await addFormatExpressions(config);
-      toast({ title: "Success", description: "Format expressions added successfully" });
-    } catch (error) {
-      toast({ title: "Error", description: `Failed to add format expressions: ${error}`, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClearService = async (service: string, clearFunction: () => Promise<any>) => {
-    setLoading(true);
-    try {
-      await clearFunction();
-      toast({ title: "Success", description: `${service} configuration cleared successfully` });
-    } catch (error) {
-      toast({ title: "Error", description: `Failed to clear ${service} configuration: ${error}`, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const selectedServiceConfig = ALL_SERVICES.find(s => s.value === selectedService);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4">zGrid Admin Panel</h1>
-          <p className="text-lg text-muted-foreground">
-            Configure custom rules and settings for all zGrid services.
-          </p>
-        </div>
-
-        <Tabs defaultValue="pii" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="pii">PII</TabsTrigger>
-            <TabsTrigger value="jailbreak">Jailbreak</TabsTrigger>
-            <TabsTrigger value="policy">Policy</TabsTrigger>
-            <TabsTrigger value="ban">Ban/Bias</TabsTrigger>
-            <TabsTrigger value="secrets">Secrets</TabsTrigger>
-            <TabsTrigger value="format">Format</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pii" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>PII Protection Configuration</CardTitle>
-                <CardDescription>
-                  Configure custom PII patterns, placeholders, and thresholds. Standard entities include: EMAIL_ADDRESS, PHONE_NUMBER, CREDIT_CARD, US_SSN, PERSON, LOCATION, IN_AADHAAR, IN_PAN.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Quick Templates Section */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium">Quick Templates</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setPiiEntities(`[
-  {
-    "type": "EMPLOYEE_ID",
-    "pattern": "\\\\bEMP\\\\d{6}\\\\b",
-    "description": "Employee ID format EMP123456"
-  }
-]`)}
-                    >
-                      Employee ID
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setPiiEntities(`[
-  {
-    "type": "PROJECT_CODE",
-    "pattern": "\\\\b[A-Z]{2,4}-\\\\d{3,4}\\\\b",
-    "description": "Project codes like XX-123 or XXXX-1234"
-  }
-]`)}
-                    >
-                      Project Code
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setPiiEntities(`[
-  {
-    "type": "REF_NUMBER",
-    "pattern": "\\\\bREF:\\\\d{4,8}\\\\b",
-    "description": "Reference numbers like REF:12345678"
-  }
-]`)}
-                    >
-                      Reference Number
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pii-entities">Custom Entities (JSON)</Label>
-                  <Textarea
-                    id="pii-entities"
-                    placeholder='[{"type": "EMPLOYEE_ID", "pattern": "\\\\bEMP\\\\d{6}\\\\b", "description": "Employee ID format"}]'
-                    value={piiEntities}
-                    onChange={(e) => setPiiEntities(e.target.value)}
-                    rows={6}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Define custom PII patterns using regex. Use double backslashes (\\\\) for regex escaping.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pii-placeholders">Custom Placeholders (JSON)</Label>
-                  <Textarea
-                    id="pii-placeholders"
-                    placeholder='[{"entity_type": "EMPLOYEE_ID", "placeholder": "[EMP_ID]"}]'
-                    value={piiPlaceholders}
-                    onChange={(e) => setPiiPlaceholders(e.target.value)}
-                    rows={3}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Optional: Define custom replacement text for detected entities.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pii-thresholds">Custom Thresholds (JSON)</Label>
-                  <Textarea
-                    id="pii-thresholds"
-                    placeholder='[{"entity_type": "EMPLOYEE_ID", "threshold": 0.8}]'
-                    value={piiThresholds}
-                    onChange={(e) => setPiiThresholds(e.target.value)}
-                    rows={3}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Optional: Set confidence thresholds (0.0-1.0) for entity detection.
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button onClick={handleAddPII} disabled={loading}>
-                    Add Configuration
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleClearService("PII", clearPIIEntities)}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="jailbreak" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Jailbreak Detection Configuration</CardTitle>
-                <CardDescription>
-                  Add custom patterns and similarity texts for jailbreak detection.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="jailbreak-rules">Custom Rules (JSON)</Label>
-                  <Textarea
-                    id="jailbreak-rules"
-                    placeholder='[{"id": "COMPANY_SECRETS", "pattern": "\\\\b(ignore|disregard)\\\\s+(company|internal)\\\\b", "flags": "i"}]'
-                    value={jailbreakRules}
-                    onChange={(e) => setJailbreakRules(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="jailbreak-texts">Similarity Texts (JSON Array)</Label>
-                  <Textarea
-                    id="jailbreak-texts"
-                    placeholder='["ignore all company policies", "disregard internal guidelines"]'
-                    value={jailbreakTexts}
-                    onChange={(e) => setJailbreakTexts(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddJailbreak} disabled={loading}>
-                    Add Configuration
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleClearService("Jailbreak", clearJailbreakRules)}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="policy" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Policy Moderation Configuration</CardTitle>
-                <CardDescription>
-                  Add custom policies and categories for content moderation.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="policy-rules">Custom Policies (JSON)</Label>
-                  <Textarea
-                    id="policy-rules"
-                    placeholder='[{"category": "COMPANY_SECRETS", "keywords": ["confidential", "proprietary"], "severity": "HIGH"}]'
-                    value={policyRules}
-                    onChange={(e) => setPolicyRules(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="policy-categories">Custom Categories (JSON)</Label>
-                  <Textarea
-                    id="policy-categories"
-                    placeholder='[{"name": "CompanyPolicy", "description": "Internal company policy violations"}]'
-                    value={policyCategories}
-                    onChange={(e) => setPolicyCategories(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddPolicy} disabled={loading}>
-                    Add Configuration
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleClearService("Policy", clearPolicyRules)}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="ban" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Ban/Bias & Brand Safety Configuration</CardTitle>
-                <CardDescription>
-                  Add custom ban terms and allowed terms for content filtering.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ban-rules">Custom Ban Terms (JSON)</Label>
-                  <Textarea
-                    id="ban-rules"
-                    placeholder='[{"pattern": "competitorxyz", "type": "literal", "category": "COMPETITOR", "severity": 4}]'
-                    value={banRules}
-                    onChange={(e) => setBanRules(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ban-allow">Allowed Terms (JSON Array)</Label>
-                  <Textarea
-                    id="ban-allow"
-                    placeholder='["our company discussion", "legitimate business"]'
-                    value={banAllowList}
-                    onChange={(e) => setBanAllowList(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddBan} disabled={loading}>
-                    Add Configuration
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleClearService("Ban", clearBanRules)}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="secrets" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Secrets Detection Configuration</CardTitle>
-                <CardDescription>
-                  Add custom regex patterns for detecting secrets and credentials.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="secrets-signatures">Custom Signatures (JSON)</Label>
-                  <Textarea
-                    id="secrets-signatures"
-                    placeholder='[{"id": "CUSTOM_API_KEY", "category": "INTERNAL", "type": "regex", "pattern": "\\\\bck_[A-Za-z0-9]{32}\\\\b", "severity": 4}]'
-                    value={secretsSignatures}
-                    onChange={(e) => setSecretsSignatures(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddSecrets} disabled={loading}>
-                    Add Configuration
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleClearService("Secrets", clearSecretsSignatures)}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="format" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Format Validation Configuration</CardTitle>
-                <CardDescription>
-                  Add custom Cucumber expressions for format validation.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="format-expressions">Custom Expressions (JSON Array)</Label>
-                  <Textarea
-                    id="format-expressions"
-                    placeholder='["Email {email}, phone {phone}", "Name: {word}, Age: {int}"]'
-                    value={formatExpressions}
-                    onChange={(e) => setFormatExpressions(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddFormat} disabled={loading}>
-                    Add Configuration
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => handleClearService("Format", clearFormatExpressions)}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-3xl font-bold">zGrid Admin Panel</h1>
+        <p className="text-muted-foreground">
+          Manage configurations for all 25 zGrid AI safety services with AI-powered generation
+        </p>
       </div>
+
+      {/* Service Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Service Selection
+          </CardTitle>
+          <CardDescription>
+            Choose the service and configuration type you want to manage
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="service">Service</Label>
+              <Select value={selectedService} onValueChange={(value: ServiceName) => setSelectedService(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_SERVICES.map((service) => (
+                    <SelectItem key={service.value} value={service.value}>
+                      {service.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="configType">Configuration Type</Label>
+              <Select value={selectedConfigType} onValueChange={setSelectedConfigType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select config type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedServiceConfig?.configTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* AI Configuration Generator */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              AI Configuration Generator
+            </CardTitle>
+            <CardDescription>
+              Generate configurations using Gemini AI from sample inputs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sampleInputs">Sample Inputs (one per line)</Label>
+              <Textarea
+                id="sampleInputs"
+                placeholder="Enter sample inputs that should trigger this service..."
+                value={sampleInputs}
+                onChange={(e) => setSampleInputs(e.target.value)}
+                rows={6}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input
+                id="description"
+                placeholder="Describe what this configuration should detect..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            
+            <Button
+              onClick={handleGenerateAI}
+              disabled={loading || !sampleInputs.trim()}
+              className="w-full"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate with AI
+            </Button>
+            
+            {generatedConfig && (
+              <div className="space-y-2">
+                <Label>Generated Configuration</Label>
+                <Textarea
+                  value={generatedConfig}
+                  readOnly
+                  rows={8}
+                  className="font-mono text-sm"
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Manual Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Manual Configuration
+            </CardTitle>
+            <CardDescription>
+              Create configurations manually with JSON
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="manualConfig">Configuration JSON</Label>
+              <Textarea
+                id="manualConfig"
+                placeholder='{"patterns": [{"name": "example", "pattern": "...", "description": "..."}]}'
+                value={manualConfig}
+                onChange={(e) => setManualConfig(e.target.value)}
+                rows={10}
+                className="font-mono text-sm"
+              />
+            </div>
+            
+            <Button
+              onClick={handleSaveManual}
+              disabled={loading || !manualConfig.trim()}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Save Configuration
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Configuration Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Saved Configurations ({configurations.length})
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleApplyConfigs}
+                disabled={loading || configurations.filter(c => c.is_active).length === 0}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Apply Active
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleClearAll}
+                disabled={loading || configurations.length === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear All
+              </Button>
+            </div>
+          </CardTitle>
+          <CardDescription>
+            Manage and apply configurations for {selectedServiceConfig?.label}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {configurations.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No configurations found for {selectedServiceConfig?.label}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {configurations.map((config) => (
+                <div
+                  key={config.id}
+                  className="border rounded-lg p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{config.config_type}</h4>
+                        {config.ai_generated && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            AI Generated
+                          </Badge>
+                        )}
+                        <Badge 
+                          variant={config.is_active ? "default" : "secondary"}
+                          className="text-xs"
+                        >
+                          {config.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        {config.confidence_score && (
+                          <Badge variant="outline" className="text-xs">
+                            {Math.round(config.confidence_score * 100)}% confidence
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {config.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Created: {new Date(config.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleConfig(config.id)}
+                      >
+                        {config.is_active ? (
+                          <Pause className="h-4 w-4" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteConfig(config.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <details className="space-y-2">
+                    <summary className="cursor-pointer text-sm font-medium">
+                      View Configuration
+                    </summary>
+                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
+                      {JSON.stringify(config.config_data, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

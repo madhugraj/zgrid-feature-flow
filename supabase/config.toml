@@ -1,1 +1,4 @@
 project_id = "bgczwmnqxmxusfwapqcn"
+
+[functions.ai-config-generator]
+verify_jwt = false
