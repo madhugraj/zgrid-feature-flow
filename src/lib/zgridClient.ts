@@ -1,26 +1,32 @@
 type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
-// Default endpoints - using mock for demo since localhost has CORS issues
-// To use real services, expose them via ngrok or configure CORS properly
-let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "mock";
+// Service endpoints - CORS configured for localhost access
+// PII Detection Service - Port 8000
+let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://localhost:8000";
 let PII_KEY  = import.meta.env.VITE_PII_API_KEY || "supersecret123";
 
-let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "mock";
+// Toxicity Detection Service - Port 8001  
+let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "http://localhost:8001";
 let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
 
-let JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "mock";
+// Jailbreak Defense Service - Port 8002
+let JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
 let JAIL_KEY  = import.meta.env.VITE_JAIL_API_KEY || "supersecret123";
 
-let BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "mock";
+// Ban/Bias Detection Service - Port 8004
+let BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "http://localhost:8004";
 let BAN_KEY  = import.meta.env.VITE_BAN_API_KEY || "supersecret123";
 
-let POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "mock";
+// Policy Moderation Service - Port 8003
+let POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "http://localhost:8003";
 let POLICY_KEY  = import.meta.env.VITE_POLICY_API_KEY || "supersecret123";
 
-let SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "mock";
+// Secrets Detection Service - Port 8005
+let SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "http://localhost:8005";
 let SECRETS_KEY  = import.meta.env.VITE_SECRETS_API_KEY || "supersecret123";
 
-let FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "mock";
+// Format Validation Service - Port 8006
+let FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "http://localhost:8006";
 let FORMAT_KEY  = import.meta.env.VITE_FORMAT_API_KEY || "supersecret123";
 
 // Admin API Keys (separate from regular keys)
