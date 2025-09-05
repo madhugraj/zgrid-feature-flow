@@ -1,25 +1,26 @@
 type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
-// Default endpoints - using localhost ports for FastAPI services
-let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://localhost:8000";
+// Default endpoints - using mock for demo since localhost has CORS issues
+// To use real services, expose them via ngrok or configure CORS properly
+let PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "mock";
 let PII_KEY  = import.meta.env.VITE_PII_API_KEY || "supersecret123";
 
-let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "http://localhost:8001";
+let TOX_BASE = import.meta.env.VITE_TOX_ENDPOINT || "mock";
 let TOX_KEY  = import.meta.env.VITE_TOX_API_KEY || "supersecret123";
 
-let JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
+let JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "mock";
 let JAIL_KEY  = import.meta.env.VITE_JAIL_API_KEY || "supersecret123";
 
-let BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "http://localhost:8004";
+let BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "mock";
 let BAN_KEY  = import.meta.env.VITE_BAN_API_KEY || "supersecret123";
 
-let POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "http://localhost:8003";
+let POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "mock";
 let POLICY_KEY  = import.meta.env.VITE_POLICY_API_KEY || "supersecret123";
 
-let SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "http://localhost:8005";
+let SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "mock";
 let SECRETS_KEY  = import.meta.env.VITE_SECRETS_API_KEY || "supersecret123";
 
-let FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "http://localhost:8006";
+let FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "mock";
 let FORMAT_KEY  = import.meta.env.VITE_FORMAT_API_KEY || "supersecret123";
 
 // Admin API Keys (separate from regular keys)
