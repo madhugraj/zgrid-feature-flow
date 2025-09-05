@@ -488,11 +488,6 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                   </p>
                 )}
                 
-                {useLocalServices && (
-                  <p className="text-xs text-green-600 bg-green-50 p-3 rounded border border-green-200">
-                    🚀 Connected to FastAPI services on localhost ports 8000-8006
-                  </p>
-                )}
               </div>
               
               <div>
