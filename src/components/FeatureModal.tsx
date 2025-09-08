@@ -489,15 +489,10 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                     className="rounded"
                   />
                   <label htmlFor="useLocalServices" className="text-sm font-medium">
-                    Use FastAPI Services (localhost:8000-8006)
+                    Use FastAPI Services
                   </label>
                 </div>
                 
-                {!useLocalServices && (
-                  <p className="text-xs text-muted-foreground bg-primary/5 p-3 rounded border border-primary/20">
-                    💡 Demo Mode: Using simulated responses. Enable "Use FastAPI Services" to test with your deployed services.
-                  </p>
-                )}
                 
               </div>
               
@@ -614,12 +609,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               )}
               
               <p className="text-xs text-muted-foreground">
-                {(feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) 
-                  ? '* This connects to your real PII detection service running on localhost:8000'
-                  : (feature.featureCode === 'ZG0004' || feature.name.toLowerCase().includes('toxicity'))
-                  ? '* This connects to your real toxicity detection service running on localhost:8001'
-                  : '* This is a demo simulation for UX purposes only. Actual implementation would use the specified repository dependency.'
-                }
+                * This connects to your deployed service for real-time validation and processing.
               </p>
             </div>
             </TabsContent>
