@@ -201,16 +201,27 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
       if (feature.featureCode === 'ZG0001' || feature.name.toLowerCase().includes('pii')) {
         if (useLocalServices) {
           try {
-            const result = await detectPII(tryItInput);
+            const result = await validatePII(tryItInput, 
+              ["EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "US_SSN", "PERSON", "LOCATION", "IN_AADHAAR", "IN_PAN"],
+              true
+            );
+            
+            // Process gateway response - check results.pii for actual PII detection results
+            const piiResult = result.results?.pii || result;
+            const entities = piiResult.entities || [];
+            const status = result.status === 'blocked' ? 'blocked' : 
+                         result.status === 'fixed' ? 'fixed' : 
+                         entities.length > 0 ? 'blocked' : 'passed';
+            
             setSimulationResult({
-              status: result.entities?.length > 0 ? 'blocked' : 'passed',
-              redactedText: result.redacted_text,
-              entities: result.entities
+              status,
+              redactedText: piiResult.redacted_text || result.clean_text,
+              entities: entities
             });
             
             toast({
               title: "PII Detection Complete",
-              description: `Found ${result.entities?.length || 0} PII entities.`,
+              description: `Status: ${result.status}. Found ${entities.length} PII entities.`,
             });
           } catch (error) {
             console.error('PII Validation Error Details:', error);
