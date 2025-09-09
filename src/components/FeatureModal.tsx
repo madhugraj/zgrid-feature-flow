@@ -244,7 +244,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             const statusDetails = getStatusDescription(result, feature.name);
             toast({
               title: "PII Detection Complete",
-              description: `${statusDetails}. Found ${entities.length} PII entities.`,
+              description: statusDetails,
             });
           } catch (error) {
             console.error('PII Validation Error Details:', error);
@@ -298,7 +298,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             const statusDetails = getStatusDescription(result, feature.name);
             toast({
               title: "Toxicity Detection Complete", 
-              description: `${statusDetails}. Found ${result.flagged?.length || 0} toxic elements.`,
+              description: statusDetails,
             });
           } catch (error) {
             setSimulationResult({ 
