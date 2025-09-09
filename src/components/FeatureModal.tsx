@@ -344,13 +344,15 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               description: `Status: ${result.status}`,
             });
           } catch (error) {
+            console.error(`${feature.name} test failed:`, error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             setSimulationResult({ 
               status: 'blocked', 
-              error: `Failed to connect to ${feature.name} service. Check that your service is running on the expected port.` 
+              error: `${feature.name} test failed: ${errorMessage}` 
             });
             toast({
-              title: "Service Connection Error",
-              description: `Cannot connect to ${feature.name} service.`,
+              title: "Test Failed", 
+              description: errorMessage,
               variant: "destructive"
             });
           }
