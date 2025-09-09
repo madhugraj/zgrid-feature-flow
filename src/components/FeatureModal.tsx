@@ -16,6 +16,28 @@ import { useToast } from '@/hooks/use-toast';
 import { validatePII, validateTox, validateJailbreak, validatePolicy, validateBan, validateSecrets, validateFormat,
   addPIIEntities, addJailbreakRules, addPolicyRules, addBanRules, addSecretsSignatures, addFormatExpressions } from '@/lib/zgridClient';
 
+const getStatusDescription = (result: any, featureName: string) => {
+  const status = result.status;
+  
+  if (status === 'pass') {
+    return `✅ Content passed - No issues detected`;
+  } else if (status === 'fixed') {
+    const blockedCategories = result.blocked_categories || [];
+    if (blockedCategories.length > 0) {
+      return `🔧 Content filtered - ${blockedCategories.join(', ')} detected and processed`;
+    }
+    return `🔧 Content filtered - Issues detected and processed`;
+  } else if (status === 'blocked') {
+    const blockedCategories = result.blocked_categories || [];
+    if (blockedCategories.length > 0) {
+      return `🚫 Content blocked - ${blockedCategories.join(', ')} detected`;
+    }
+    return `🚫 Content blocked - Policy violation detected`;
+  }
+  
+  return `Status: ${status}`;
+};
+
 
 interface FeatureModalProps {
   feature: Feature;
@@ -219,9 +241,10 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               entities: entities
             });
             
+            const statusDetails = getStatusDescription(result, feature.name);
             toast({
               title: "PII Detection Complete",
-              description: `Status: ${result.status}. Found ${entities.length} PII entities.`,
+              description: `${statusDetails}. Found ${entities.length} PII entities.`,
             });
           } catch (error) {
             console.error('PII Validation Error Details:', error);
@@ -272,9 +295,10 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               scores: result.scores
             });
             
+            const statusDetails = getStatusDescription(result, feature.name);
             toast({
-              title: "Toxicity Detection Complete",
-              description: `Status: ${result.status}. Found ${result.flagged?.length || 0} toxic elements.`,
+              title: "Toxicity Detection Complete", 
+              description: `${statusDetails}. Found ${result.flagged?.length || 0} toxic elements.`,
             });
           } catch (error) {
             setSimulationResult({ 
@@ -339,9 +363,10 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               scores: result.scores
             });
             
+            const statusDetails = getStatusDescription(result, feature.name);
             toast({
               title: `${feature.name} Detection Complete`,
-              description: `Status: ${result.status}`,
+              description: statusDetails,
             });
           } catch (error) {
             console.error(`${feature.name} test failed:`, error);
