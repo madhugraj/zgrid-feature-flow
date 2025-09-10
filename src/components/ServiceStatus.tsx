@@ -6,7 +6,8 @@ import {
   healthBan, 
   healthPolicy, 
   healthSecrets,
-  healthFormat 
+  healthFormat,
+  healthGibberish
 } from "@/lib/zgridClient";
 
 type ServiceState = "ok" | "fail" | "...";
@@ -19,6 +20,7 @@ export default function ServiceStatus() {
   const [policy, setPolicy] = useState<ServiceState>("...");
   const [secrets, setSecrets] = useState<ServiceState>("...");
   const [format, setFormat] = useState<ServiceState>("...");
+  const [gibberish, setGibberish] = useState<ServiceState>("...");
 
   useEffect(() => {
     // Check all service health endpoints with detailed logging
@@ -41,6 +43,7 @@ export default function ServiceStatus() {
     checkService("Policy", healthPolicy, setPolicy);
     checkService("Secrets", healthSecrets, setSecrets);
     checkService("Format", healthFormat, setFormat);
+    checkService("Gibberish", healthGibberish, setGibberish);
   }, []);
 
   const pill = (label: string, state: ServiceState) => (
@@ -62,6 +65,7 @@ export default function ServiceStatus() {
       {pill("Policy", policy)}
       {pill("Secrets", secrets)}
       {pill("Format", format)}
+      {pill("Gibberish", gibberish)}
     </div>
   );
 }

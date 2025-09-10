@@ -13,8 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
-import { validatePII, validateTox, validateJailbreak, validatePolicy, validateBan, validateSecrets, validateFormat,
-  addPIIEntities, addJailbreakRules, addPolicyRules, addBanRules, addSecretsSignatures, addFormatExpressions } from '@/lib/zgridClient';
+import { validatePII, validateTox, validateJailbreak, validatePolicy, validateBan, validateSecrets, validateFormat, validateGibberish,
+  addPIIEntities, addJailbreakRules, addPolicyRules, addBanRules, addSecretsSignatures, addFormatExpressions, addGibberishRules } from '@/lib/zgridClient';
 
 const getStatusDescription = (result: any, featureName: string) => {
   const status = result.status;
@@ -58,6 +58,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
     entities?: Array<{ type: string; text: string; start: number; end: number }>;
     flagged?: Array<{ type: string; score: number; span: number[]; sentence: string }>;
     scores?: Record<string, number>;
+    isGibberish?: boolean;
+    confidence?: number;
     error?: string;
   }>({ status: null });
   const [useLocalServices, setUseLocalServices] = useState(true); // Default to true for FastAPI services
@@ -116,6 +118,9 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
       } else if (feature.featureCode === 'ZG0007' || feature.name.toLowerCase().includes('format')) {
         await addFormatExpressions(config);
         toast({ title: "Format Expressions Added", description: "Custom format expressions added successfully." });
+      } else if (feature.featureCode === 'ZG0008' || feature.name.toLowerCase().includes('gibberish')) {
+        await addGibberishRules(config);
+        toast({ title: "Gibberish Rules Added", description: "Custom gibberish rules added successfully." });
       }
       
       setAdminConfig('');
@@ -137,6 +142,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
       case 'ZG0005': return (text: string) => validateBan(text);
       case 'ZG0006': return (text: string) => validateSecrets(text);
       case 'ZG0007': return (text: string) => validateFormat(text);
+      case 'ZG0008': return (text: string) => validateGibberish(text);
       default: return null;
     }
   };
@@ -207,6 +213,18 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   "custom_expressions": [
     "Email {email}, phone {phone}",
     "Name: {word}, Age: {int}"
+  ]
+}`;
+      case 'ZG0008':
+        return `{
+  "threshold": 0.8,
+  "min_length": 10,
+  "custom_patterns": [
+    {
+      "pattern": "[a-z]{8,}",
+      "description": "Long random letter sequences", 
+      "weight": 0.3
+    }
   ]
 }`;
       default:
@@ -364,6 +382,96 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           toast({
             title: "Toxicity Detection Complete (Demo Mode)",
             description: `Status: ${flaggedItems.length > 0 ? 'fixed' : 'passed'}. Found ${flaggedItems.length} toxic elements in demo simulation.`,
+          });
+        }
+      } else if (feature.featureCode === 'ZG0008' || feature.name.toLowerCase().includes('gibberish')) {
+        if (useLocalServices) {
+          try {
+            const result = await validateGibberish(tryItInput, 0.8, 10, true);
+            setSimulationResult({
+              status: result.status,
+              cleanText: result.clean_text,
+              isGibberish: result.is_gibberish,
+              confidence: result.confidence,
+              flagged: result.flagged
+            });
+            
+            const statusDetails = getStatusDescription(result, feature.name);
+            toast({
+              title: "Gibberish Detection Complete", 
+              description: statusDetails,
+            });
+          } catch (error) {
+            console.error('Gibberish Detection Error:', error);
+            
+            let errorMessage = "Gibberish service error occurred.";
+            let errorTitle = "Service Error";
+            
+            if (error instanceof Error) {
+              if (error.message.includes('timed out')) {
+                errorMessage = "Gibberish service request timed out. The service may be slow or overloaded.";
+                errorTitle = "Service Timeout";
+              } else if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
+                errorMessage = "Cannot connect to gibberish service. Check that the service is running.";
+                errorTitle = "Connection Error";
+              } else {
+                errorMessage = `Gibberish service error: ${error.message}`;
+              }
+            }
+            
+            setSimulationResult({ 
+              status: 'blocked', 
+              error: errorMessage
+            });
+            toast({
+              title: errorTitle,
+              description: errorMessage,
+              variant: "destructive"
+            });
+          }
+        } else {
+          // Mock gibberish detection for demo
+          const input = tryItInput.toLowerCase();
+          const gibberishPatterns = [
+            /[qwerty]{4,}/i,
+            /[asdf]{4,}/i, 
+            /[zxcv]{4,}/i,
+            /(.)\1{4,}/,  // Repeated characters
+            /[bcdfghjklmnpqrstvwxyz]{8,}/i // Long consonant sequences
+          ];
+          
+          let hasGibberish = false;
+          let confidence = 0.1;
+          const flaggedItems = [];
+          
+          gibberishPatterns.forEach((pattern, index) => {
+            const matches = tryItInput.match(pattern);
+            if (matches) {
+              hasGibberish = true;
+              confidence = 0.7 + (index * 0.05);
+              flaggedItems.push({
+                type: 'gibberish',
+                category: 'GIBBERISH',
+                value: matches[0],
+                start: tryItInput.indexOf(matches[0]),
+                end: tryItInput.indexOf(matches[0]) + matches[0].length,
+                score: confidence,
+                engine: 'pattern_matching'
+              });
+            }
+          });
+          
+          setSimulationResult({
+            status: hasGibberish ? 'blocked' : 'passed',
+            cleanText: hasGibberish ? '' : tryItInput,
+            isGibberish: hasGibberish,
+            confidence: confidence,
+            flagged: flaggedItems
+          });
+          
+          toast({
+            title: "Gibberish Detection Complete (Demo Mode)",
+            description: `Status: ${hasGibberish ? 'blocked' : 'passed'}. Confidence: ${Math.round(confidence * 100)}%`,
           });
         }
       } else {

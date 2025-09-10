@@ -11,6 +11,7 @@ let BAN_ADMIN_KEY = import.meta.env.VITE_BAN_ADMIN_KEY || "banprivileged123";
 let POLICY_ADMIN_KEY = import.meta.env.VITE_POLICY_ADMIN_KEY || "policyprivileged123";
 let SECRETS_ADMIN_KEY = import.meta.env.VITE_SECRETS_ADMIN_KEY || "secretsprivileged123";
 let FORMAT_ADMIN_KEY = import.meta.env.VITE_FORMAT_ADMIN_KEY || "formatprivileged123";
+let GIBBERISH_ADMIN_KEY = import.meta.env.VITE_GIBBERISH_ADMIN_KEY || "gibberishprivileged123";
 
 // Configuration helpers
 export function setServiceConfig(config: {
@@ -22,6 +23,7 @@ export function setServiceConfig(config: {
   policyAdminKey?: string;
   secretsAdminKey?: string;
   formatAdminKey?: string;
+  gibberishAdminKey?: string;
 }) {
   if (config.gatewayEndpoint) GATEWAY_BASE = config.gatewayEndpoint;
   if (config.gatewayApiKey) GATEWAY_KEY = config.gatewayApiKey;
@@ -31,13 +33,14 @@ export function setServiceConfig(config: {
   if (config.policyAdminKey) POLICY_ADMIN_KEY = config.policyAdminKey;
   if (config.secretsAdminKey) SECRETS_ADMIN_KEY = config.secretsAdminKey;
   if (config.formatAdminKey) FORMAT_ADMIN_KEY = config.formatAdminKey;
+  if (config.gibberishAdminKey) GIBBERISH_ADMIN_KEY = config.gibberishAdminKey;
 }
 
 export function getServiceConfig() {
   return { 
     GATEWAY_BASE, GATEWAY_KEY,
     PII_ADMIN_KEY, JAIL_ADMIN_KEY, BAN_ADMIN_KEY,
-    POLICY_ADMIN_KEY, SECRETS_ADMIN_KEY, FORMAT_ADMIN_KEY
+    POLICY_ADMIN_KEY, SECRETS_ADMIN_KEY, FORMAT_ADMIN_KEY, GIBBERISH_ADMIN_KEY
   };
 }
 
@@ -130,6 +133,12 @@ export async function healthFormat() {
   return healthGateway();
 }
 
+export async function healthGibberish() { 
+  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
+  if (GIBBERISH_BASE === "mock") return { status: "ok", service: "gibberish-mock" };
+  return xfetch(`${GIBBERISH_BASE}/health`); 
+}
+
 // =================== UNIFIED CONTENT MODERATION API ===================
 
 // Main validation function using the Content Moderation Gateway
@@ -140,10 +149,13 @@ export async function validateContent(text: string, options: {
   check_secrets?: boolean;
   check_jailbreak?: boolean;
   check_format?: boolean;
+  check_gibberish?: boolean;
   action_on_fail?: "refrain" | "filter" | "mask";
   entities?: string[];
   expressions?: string[];
   return_spans?: boolean;
+  gibberish_threshold?: number;
+  gibberish_min_length?: number;
 } = {}) {
   console.log('validateContent called with:', { text, options, GATEWAY_BASE });
   
@@ -168,10 +180,13 @@ export async function validateContent(text: string, options: {
     check_pii: options.check_pii || false,
     check_secrets: options.check_secrets || false,
     check_jailbreak: options.check_jailbreak || false,
+    check_gibberish: options.check_gibberish || false,
     action_on_fail: options.action_on_fail || "refrain",
     entities: options.entities,
     expressions: options.expressions,
-    return_spans: options.return_spans || true
+    return_spans: options.return_spans || true,
+    gibberish_threshold: options.gibberish_threshold,
+    gibberish_min_length: options.gibberish_min_length
   };
   
   console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
@@ -274,6 +289,40 @@ export async function validateFormat(text: string, expressions?: string[], retur
     expressions: expressions || ["Email {email}, phone {phone}"],
     return_spans,
     action_on_fail: "refrain"
+  });
+}
+
+export async function validateGibberish(text: string, threshold?: number, min_length?: number, return_spans?: boolean) {
+  console.log('validateGibberish called with:', { text, threshold, min_length, return_spans });
+  
+  // For standalone gibberish detection, use the direct service endpoint
+  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
+  
+  if (GIBBERISH_BASE === "mock") {
+    const hasGibberish = /[asdgf]{4,}|[qwerty]{4,}|[zxcvbn]{4,}/i.test(text);
+    return {
+      status: hasGibberish ? "blocked" : "pass",
+      clean_text: hasGibberish ? "" : text,
+      is_gibberish: hasGibberish,
+      confidence: hasGibberish ? 0.9 : 0.1,
+      flagged: hasGibberish ? [{ type: "gibberish", score: 0.9 }] : [],
+      steps: [{ name: "gibberish_detection", passed: !hasGibberish, details: { mock: true } }],
+      reasons: hasGibberish ? ["Gibberish detected (mock)"] : ["Content appears legitimate"]
+    };
+  }
+
+  const requestBody = {
+    text,
+    threshold: threshold || 0.8,
+    min_length: min_length || 10,
+    action_on_fail: "refrain",
+    return_spans: return_spans || true
+  };
+
+  return xfetch(`${GIBBERISH_BASE}/validate`, {
+    method: "POST",
+    headers: { "X-API-Key": "supersecret123" },
+    body: requestBody,
   });
 }
 
@@ -585,5 +634,53 @@ export async function clearFormatExpressions() {
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     method: "DELETE",
     headers: { "x-api-key": FORMAT_ADMIN_KEY },
+  });
+}
+
+// Gibberish Admin Functions
+export async function addGibberishRules(config: {
+  threshold?: number;
+  min_length?: number;
+  custom_patterns?: Array<{
+    pattern: string;
+    description: string;
+    weight: number;
+  }>;
+}) {
+  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
+  
+  if (GIBBERISH_BASE === "mock") {
+    return { status: "success", message: "Custom gibberish rules added (mock)" };
+  }
+  
+  return xfetch(`${GIBBERISH_BASE}/admin/rules`, {
+    method: "POST",
+    headers: { "x-api-key": GIBBERISH_ADMIN_KEY },
+    body: config,
+  });
+}
+
+export async function getGibberishRules() {
+  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
+  
+  if (GIBBERISH_BASE === "mock") {
+    return { threshold: 0.8, min_length: 10, patterns: [] };
+  }
+  
+  return xfetch(`${GIBBERISH_BASE}/admin/rules`, {
+    headers: { "x-api-key": GIBBERISH_ADMIN_KEY },
+  });
+}
+
+export async function clearGibberishRules() {
+  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
+  
+  if (GIBBERISH_BASE === "mock") {
+    return { status: "success", message: "Gibberish rules cleared (mock)" };
+  }
+  
+  return xfetch(`${GIBBERISH_BASE}/admin/rules`, {
+    method: "DELETE",
+    headers: { "x-api-key": GIBBERISH_ADMIN_KEY },
   });
 }
