@@ -301,13 +301,30 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               description: statusDetails,
             });
           } catch (error) {
+            console.error('Toxicity Detection Error:', error);
+            
+            let errorMessage = "Toxicity service error occurred.";
+            let errorTitle = "Service Error";
+            
+            if (error instanceof Error) {
+              if (error.message.includes('timed out')) {
+                errorMessage = "Toxicity service request timed out. The service may be slow or overloaded.";
+                errorTitle = "Service Timeout";
+              } else if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
+                errorMessage = "Cannot connect to toxicity service. Check that the service is running.";
+                errorTitle = "Connection Error";
+              } else {
+                errorMessage = `Toxicity service error: ${error.message}`;
+              }
+            }
+            
             setSimulationResult({ 
               status: 'blocked', 
-              error: 'Failed to connect to Toxicity service. Check that your environment variables are set correctly.' 
+              error: errorMessage
             });
             toast({
-              title: "Service Connection Error",
-              description: "Cannot connect to Toxicity service. Check configuration.",
+              title: errorTitle,
+              description: errorMessage,
               variant: "destructive"
             });
           }
