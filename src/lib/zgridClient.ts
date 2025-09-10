@@ -296,7 +296,8 @@ export async function validateGibberish(text: string, threshold?: number, min_le
   console.log('validateGibberish called with:', { text, threshold, min_length, return_spans });
   
   // For standalone gibberish detection, use the direct service endpoint
-  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
+  // Use mock mode in preview environment to avoid CORS issues
+  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || (window.location.hostname.includes('lovable.app') ? "mock" : "http://localhost:8007");
   
   if (GIBBERISH_BASE === "mock") {
     const hasGibberish = /[asdgf]{4,}|[qwerty]{4,}|[zxcvbn]{4,}/i.test(text);
