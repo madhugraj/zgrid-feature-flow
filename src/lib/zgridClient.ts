@@ -1,7 +1,7 @@
 type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
 // Content Moderation Gateway - Single endpoint for all services
-let GATEWAY_BASE = import.meta.env.VITE_GATEWAY_ENDPOINT || "http://localhost:8008";
+let GATEWAY_BASE = import.meta.env.VITE_GATEWAY_ENDPOINT || "http://localhost:8002";
 let GATEWAY_KEY = import.meta.env.VITE_GATEWAY_API_KEY || "supersecret123";
 
 // Admin API Keys for individual services (legacy support)
