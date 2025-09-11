@@ -1,12 +1,17 @@
-import { Grid3X3, Shield, Zap, Users, Target, Code, Database } from 'lucide-react';
+import { useState } from 'react';
+import { Grid3X3, Shield, Zap, Users, Target, Code, Database, Presentation } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Navbar } from '@/components/Navbar';
 import { Cart } from '@/components/Cart';
+import { PitchDeck } from '@/components/PitchDeck';
 import { useCart } from '@/hooks/useCart';
 
 export default function About() {
   const { isOpen: isCartOpen, toggleCart } = useCart();
+  const [activeTab, setActiveTab] = useState("overview");
 
   const features = [
     {
@@ -66,118 +71,147 @@ export default function About() {
           </p>
         </div>
 
-        {/* Mission Statement */}
-        <Card className="glass-card border-0 mb-16">
-          <CardHeader>
-            <div className="text-center">
-              <Target className="h-8 w-8 mx-auto mb-4 text-primary" />
-              <h2 className="text-2xl font-bold mb-2">Our Mission</h2>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg text-muted-foreground text-center leading-relaxed">
-              We believe that building secure, reliable software shouldn't require reinventing the wheel. 
-              Z-Grid provides a comprehensive marketplace of pre-built, tested, and documented features 
-              that developers can easily discover, understand, and integrate into their projects.
-            </p>
-          </CardContent>
-        </Card>
+        {/* Tabs for Overview and Pitch Deck */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Grid3X3 className="h-4 w-4" />
+              Company Overview
+            </TabsTrigger>
+            <TabsTrigger value="pitch" className="flex items-center gap-2">
+              <Presentation className="h-4 w-4" />
+              Investor Pitch Deck
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Key Features */}
-        <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Why Choose Z-Grid?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {features.map((feature, index) => (
-              <Card key={index} className="glass-card border-0 feature-card">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                      {feature.icon}
-                    </div>
-                    <h3 className="text-lg font-semibold">{feature.title}</h3>
+          <TabsContent value="overview" className="space-y-16">
+            {/* Mission Statement */}
+            <Card className="glass-card border-0">
+              <CardHeader>
+                <div className="text-center">
+                  <Target className="h-8 w-8 mx-auto mb-4 text-primary" />
+                  <h2 className="text-2xl font-bold mb-2">Our Mission</h2>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-lg text-muted-foreground text-center leading-relaxed">
+                  We believe that building secure, reliable software shouldn't require reinventing the wheel. 
+                  Z-Grid provides a comprehensive marketplace of pre-built, tested, and documented features 
+                  that developers can easily discover, understand, and integrate into their projects.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Key Features */}
+            <div>
+              <h2 className="text-3xl font-bold text-center mb-8">Why Choose Z-Grid?</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {features.map((feature, index) => (
+                  <Card key={index} className="glass-card border-0 feature-card">
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                          {feature.icon}
+                        </div>
+                        <h3 className="text-lg font-semibold">{feature.title}</h3>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground">{feature.description}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Categories Overview */}
+            <div>
+              <h2 className="text-3xl font-bold text-center mb-8">Feature Categories</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {categories.map((category, index) => (
+                  <Card key={index} className="glass-card border-0 text-center">
+                    <CardContent className="pt-6">
+                      <Badge className={`mb-3 ${category.color}`}>
+                        {category.name}
+                      </Badge>
+                      <p className="text-2xl font-bold text-primary mb-1">{category.count}</p>
+                      <p className="text-sm text-muted-foreground">Features Available</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* How It Works */}
+            <div>
+              <h2 className="text-3xl font-bold text-center mb-8">How It Works</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-primary to-primary-glow text-white flex items-center justify-center">
+                    <span className="text-2xl font-bold">1</span>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Categories Overview */}
-        <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Feature Categories</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map((category, index) => (
-              <Card key={index} className="glass-card border-0 text-center">
-                <CardContent className="pt-6">
-                  <Badge className={`mb-3 ${category.color}`}>
-                    {category.name}
-                  </Badge>
-                  <p className="text-2xl font-bold text-primary mb-1">{category.count}</p>
-                  <p className="text-sm text-muted-foreground">Features Available</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* How It Works */}
-        <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">How It Works</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-primary to-primary-glow text-white flex items-center justify-center">
-                <span className="text-2xl font-bold">1</span>
+                  <h3 className="text-lg font-semibold mb-2">Discover</h3>
+                  <p className="text-muted-foreground">
+                    Browse our marketplace of features with detailed descriptions, examples, and documentation.
+                  </p>
+                </div>
+                
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-secondary to-accent text-white flex items-center justify-center">
+                    <span className="text-2xl font-bold">2</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Collect</h3>
+                  <p className="text-muted-foreground">
+                    Add features to your collection and customize input/output specifications for your needs.
+                  </p>
+                </div>
+                
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-accent to-primary text-white flex items-center justify-center">
+                    <span className="text-2xl font-bold">3</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Implement</h3>
+                  <p className="text-muted-foreground">
+                    Generate code templates and integration guides to quickly implement features in your project.
+                  </p>
+                </div>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Discover</h3>
-              <p className="text-muted-foreground">
-                Browse our marketplace of features with detailed descriptions, examples, and documentation.
-              </p>
             </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-secondary to-accent text-white flex items-center justify-center">
-                <span className="text-2xl font-bold">2</span>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Collect</h3>
-              <p className="text-muted-foreground">
-                Add features to your collection and customize input/output specifications for your needs.
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-accent to-primary text-white flex items-center justify-center">
-                <span className="text-2xl font-bold">3</span>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Implement</h3>
-              <p className="text-muted-foreground">
-                Generate code templates and integration guides to quickly implement features in your project.
-              </p>
-            </div>
-          </div>
-        </div>
 
-        {/* Community */}
-        <Card className="glass-card border-0 text-center">
-          <CardHeader>
-            <Users className="h-8 w-8 mx-auto mb-4 text-primary" />
-            <h2 className="text-2xl font-bold mb-2">Join Our Community</h2>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Z-Grid is built by developers, for developers. We're constantly adding new features 
-              and improving existing ones based on community feedback and real-world usage.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 text-sm">
-              <Badge variant="outline">Open Source</Badge>
-              <Badge variant="outline">Community Driven</Badge>
-              <Badge variant="outline">Production Ready</Badge>
-              <Badge variant="outline">Well Documented</Badge>
+            {/* Community */}
+            <Card className="glass-card border-0 text-center">
+              <CardHeader>
+                <Users className="h-8 w-8 mx-auto mb-4 text-primary" />
+                <h2 className="text-2xl font-bold mb-2">Join Our Community</h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Z-Grid is built by developers, for developers. We're constantly adding new features 
+                  and improving existing ones based on community feedback and real-world usage.
+                </p>
+                <div className="flex flex-wrap justify-center gap-4 text-sm">
+                  <Badge variant="outline">Open Source</Badge>
+                  <Badge variant="outline">Community Driven</Badge>
+                  <Badge variant="outline">Production Ready</Badge>
+                  <Badge variant="outline">Well Documented</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pitch">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold mb-4">Z-Grid Investor Pitch Deck</h2>
+                <p className="text-muted-foreground">
+                  Navigate through our comprehensive presentation showcasing Z-Grid's market opportunity, 
+                  business model, and growth potential.
+                </p>
+              </div>
+              <PitchDeck />
             </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
+        </Tabs>
       </main>
 
       <Cart isOpen={isCartOpen} onClose={toggleCart} />
