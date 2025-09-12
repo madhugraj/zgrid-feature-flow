@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Play, Pause, Sparkles, Plus, RefreshCw, Settings } from "lucide-react";
+import { Trash2, Play, Pause, Sparkles, Plus, RefreshCw, Settings, LogOut, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "./AuthProvider";
 import {
   ServiceName,
   ServiceConfiguration,
@@ -57,6 +58,7 @@ const ALL_SERVICES: { value: ServiceName; label: string; configTypes: string[] }
 
 export default function AdminPanel() {
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [selectedService, setSelectedService] = useState<ServiceName>('PII');
   const [selectedConfigType, setSelectedConfigType] = useState('entities');
@@ -254,13 +256,33 @@ export default function AdminPanel() {
 
   const selectedServiceConfig = ALL_SERVICES.find(s => s.value === selectedService);
 
+  const handleSignOut = async () => {
+    await signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been signed out successfully",
+    });
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">zGrid Admin Panel</h1>
-        <p className="text-muted-foreground">
-          Manage configurations for all 25 zGrid AI safety services with AI-powered generation
-        </p>
+      <div className="flex justify-between items-center">
+        <div className="text-center space-y-2 flex-1">
+          <h1 className="text-3xl font-bold">zGrid Admin Panel</h1>
+          <p className="text-muted-foreground">
+            Manage configurations for all 25 zGrid AI safety services with AI-powered generation
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <User className="h-4 w-4" />
+            {user?.email}
+          </div>
+          <Button variant="outline" onClick={handleSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
       </div>
 
       {/* Service Selection */}

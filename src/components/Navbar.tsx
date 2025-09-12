@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ShoppingCart, Menu, Grid3X3 } from 'lucide-react';
+import { Search, ShoppingCart, Menu, Grid3X3, Settings } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,6 +92,15 @@ export function Navbar({ onSearchChange, onCategoryChange, onCartToggle }: Navba
               }`}
             >
               About
+            </Link>
+            <Link 
+              to="/admin" 
+              className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1 ${
+                isActive('/admin') ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              <Settings className="h-4 w-4" />
+              Admin
             </Link>
           </div>
 
