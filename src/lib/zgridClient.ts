@@ -295,35 +295,13 @@ export async function validateFormat(text: string, expressions?: string[], retur
 export async function validateGibberish(text: string, threshold?: number, min_length?: number, return_spans?: boolean) {
   console.log('validateGibberish called with:', { text, threshold, min_length, return_spans });
   
-  // For standalone gibberish detection, use the direct service endpoint
-  // Use mock mode in preview environment to avoid CORS issues
-  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || (window.location.hostname.includes('lovable.app') ? "mock" : "http://localhost:8007");
-  
-  if (GIBBERISH_BASE === "mock") {
-    const hasGibberish = /[asdgf]{4,}|[qwerty]{4,}|[zxcvbn]{4,}/i.test(text);
-    return {
-      status: hasGibberish ? "blocked" : "pass",
-      clean_text: hasGibberish ? "" : text,
-      is_gibberish: hasGibberish,
-      confidence: hasGibberish ? 0.9 : 0.1,
-      flagged: hasGibberish ? [{ type: "gibberish", score: 0.9 }] : [],
-      steps: [{ name: "gibberish_detection", passed: !hasGibberish, details: { mock: true } }],
-      reasons: hasGibberish ? ["Gibberish detected (mock)"] : ["Content appears legitimate"]
-    };
-  }
-
-  const requestBody = {
-    text,
-    threshold: threshold || 0.8,
-    min_length: min_length || 10,
-    action_on_fail: "refrain",
-    return_spans: return_spans || true
-  };
-
-  return xfetch(`${GIBBERISH_BASE}/validate`, {
-    method: "POST",
-    headers: { "X-API-Key": "supersecret123" },
-    body: requestBody,
+  // Use the unified gateway endpoint instead of individual service
+  return validateContent(text, {
+    check_gibberish: true,
+    gibberish_threshold: threshold || 0.8,
+    gibberish_min_length: min_length || 10,
+    return_spans,
+    action_on_fail: "refrain"
   });
 }
 
