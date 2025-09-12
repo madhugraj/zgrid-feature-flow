@@ -18,19 +18,18 @@ import { validatePII, validateTox, validateJailbreak, validatePolicy, validateBa
 
 const getStatusDescription = (result: any, featureName: string) => {
   const status = result.status;
+  const reasons = result.reasons || [];
   
   if (status === 'pass') {
     return `✅ Content passed - No issues detected`;
   } else if (status === 'fixed') {
-    const blockedCategories = result.blocked_categories || [];
-    if (blockedCategories.length > 0) {
-      return `🔧 Content filtered - ${blockedCategories.join(', ')} detected and processed`;
+    if (reasons.length > 0) {
+      return `🔧 Content fixed - ${reasons.join(', ')}`;
     }
-    return `🔧 Content filtered - Issues detected and processed`;
+    return `🔧 Content fixed - Issues detected and processed`;
   } else if (status === 'blocked') {
-    const blockedCategories = result.blocked_categories || [];
-    if (blockedCategories.length > 0) {
-      return `🚫 Content blocked - ${blockedCategories.join(', ')} detected`;
+    if (reasons.length > 0) {
+      return `🚫 Content blocked - ${reasons.join(', ')}`;
     }
     return `🚫 Content blocked - Policy violation detected`;
   }
@@ -52,15 +51,17 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [simulationResult, setSimulationResult] = useState<{ 
-    status: 'passed' | 'blocked' | 'fixed' | null;
-    redactedText?: string;
-    cleanText?: string;
-    entities?: Array<{ type: string; text: string; start: number; end: number }>;
-    flagged?: Array<{ type: string; score: number; span: number[]; sentence: string }>;
+    status: 'pass' | 'blocked' | 'fixed' | null;
+    processedText?: string;
+    entities?: Array<{ type: string; text: string; start: number; end: number; value?: string }>;
+    flagged?: Array<{ type: string; score: number; span?: number[]; sentence?: string; value?: string; category?: string }>;
     scores?: Record<string, number>;
     isGibberish?: boolean;
     confidence?: number;
+    reasons?: string[];
+    steps?: string[];
     error?: string;
+    serviceType?: 'pii' | 'other';
   }>({ status: null });
   const [useLocalServices, setUseLocalServices] = useState(true); // Default to true for FastAPI services
   const [adminConfig, setAdminConfig] = useState('');
@@ -246,17 +247,17 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               true
             );
             
-            // Process gateway response - check results.pii for actual PII detection results
+            // Process PII service response - use redacted_text for display
             const piiResult = result.results?.pii || result;
             const entities = piiResult.entities || [];
-            const status = result.status === 'blocked' ? 'blocked' : 
-                         result.status === 'fixed' ? 'fixed' : 
-                         entities.length > 0 ? 'blocked' : 'passed';
+            const status = result.status || (entities.length > 0 ? 'blocked' : 'pass');
             
             setSimulationResult({
               status,
-              redactedText: piiResult.redacted_text || result.clean_text,
-              entities: entities
+              processedText: piiResult.redacted_text || result.clean_text,
+              entities: entities,
+              reasons: result.reasons || [],
+              serviceType: 'pii'
             });
             
             const statusDetails = getStatusDescription(result, feature.name);
@@ -292,9 +293,10 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           }
           
           setSimulationResult({
-            status: mockEntities.length > 0 ? 'blocked' : 'passed',
-            redactedText: mockEntities.length > 0 ? tryItInput.replace(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, '[PERSON]').replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL]') : tryItInput,
-            entities: mockEntities
+            status: mockEntities.length > 0 ? 'blocked' : 'pass',
+            processedText: mockEntities.length > 0 ? tryItInput.replace(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, '[PERSON]').replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL]') : tryItInput,
+            entities: mockEntities,
+            serviceType: 'pii'
           });
           
           toast({
@@ -308,9 +310,11 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             const result = await detectToxicity(tryItInput);
             setSimulationResult({
               status: result.status,
-              cleanText: result.clean_text,
+              processedText: result.clean_text,
               flagged: result.flagged,
-              scores: result.scores
+              scores: result.scores,
+              reasons: result.reasons || [],
+              serviceType: 'other'
             });
             
             const statusDetails = getStatusDescription(result, feature.name);
@@ -366,8 +370,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           });
           
           setSimulationResult({
-            status: flaggedItems.length > 0 ? 'fixed' : 'passed',
-            cleanText: flaggedItems.length > 0 ? cleanText : tryItInput,
+            status: flaggedItems.length > 0 ? 'fixed' : 'pass',
+            processedText: flaggedItems.length > 0 ? cleanText : tryItInput,
             flagged: flaggedItems,
             scores: {
               toxicity: flaggedItems.length > 0 ? 0.85 : 0.05,
@@ -376,7 +380,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               threat: flaggedItems.length > 0 ? 0.25 : 0.01,
               insult: flaggedItems.length > 0 ? 0.65 : 0.02,
               identity_attack: flaggedItems.length > 0 ? 0.15 : 0.01
-            }
+            },
+            serviceType: 'other'
           });
           
           toast({
@@ -390,10 +395,12 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             const result = await validateGibberish(tryItInput, 0.8, 10, true);
             setSimulationResult({
               status: result.status,
-              cleanText: result.clean_text,
+              processedText: result.clean_text,
               isGibberish: result.is_gibberish,
               confidence: result.confidence,
-              flagged: result.flagged
+              flagged: result.flagged,
+              reasons: result.reasons || [],
+              serviceType: 'other'
             });
             
             const statusDetails = getStatusDescription(result, feature.name);
@@ -462,11 +469,12 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           });
           
           setSimulationResult({
-            status: hasGibberish ? 'blocked' : 'passed',
-            cleanText: hasGibberish ? '' : tryItInput,
+            status: hasGibberish ? 'blocked' : 'pass',
+            processedText: hasGibberish ? '' : tryItInput,
             isGibberish: hasGibberish,
             confidence: confidence,
-            flagged: flaggedItems
+            flagged: flaggedItems,
+            serviceType: 'other'
           });
           
           toast({
@@ -482,10 +490,12 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           try {
             const result = await apiFunction(tryItInput);
             setSimulationResult({
-              status: result.status || 'passed',
-              cleanText: result.clean_text || result.cleaned_text,
+              status: result.status || 'pass',
+              processedText: result.clean_text || result.cleaned_text,
               flagged: result.flagged || result.violations,
-              scores: result.scores
+              scores: result.scores,
+              reasons: result.reasons || [],
+              serviceType: 'other'
             });
             
             const statusDetails = getStatusDescription(result, feature.name);
@@ -516,9 +526,17 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             const unsafePatterns = ['harm', 'violence', 'hate', 'attack', '****', 'kill', 'destroy'];
             const hasUnsafeContent = unsafePatterns.some(pattern => input.includes(pattern));
             
-            setSimulationResult({ status: hasUnsafeContent ? 'blocked' : 'passed' });
+            setSimulationResult({ 
+              status: hasUnsafeContent ? 'blocked' : 'pass',
+              processedText: hasUnsafeContent ? '' : tryItInput,
+              serviceType: 'other'
+            });
           } else {
-            setSimulationResult({ status: 'passed' });
+            setSimulationResult({ 
+              status: 'pass',
+              processedText: tryItInput,
+              serviceType: 'other'
+            });
           }
 
           toast({
@@ -679,47 +697,53 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                     ) : (
                       <CheckCircle className="h-3 w-3" />
                     )}
-                    {simulationResult.status === 'blocked' ? (feature.featureCode === 'ZG0001' ? 'PII Detected' : 'Content Blocked') : 
-                     simulationResult.status === 'fixed' ? 'Toxic Content Removed' : 'Clean'}
+                    {simulationResult.status === 'blocked' ? (simulationResult.serviceType === 'pii' ? 'PII Detected' : 'Content Blocked') : 
+                     simulationResult.status === 'fixed' ? 'Content Fixed' : 'Clean'}
                   </Badge>
                 )}
               </div>
               
-              {/* PII Detection Results */}
-              {simulationResult.redactedText && (
+              {/* Service Results */}
+              {simulationResult.processedText !== undefined && simulationResult.status && simulationResult.status !== null && (
                 <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Redacted Text</label>
+                    <label className="text-sm font-medium mb-2 block">
+                      {simulationResult.serviceType === 'pii' ? 'Redacted Text' : 'Processed Text'}
+                    </label>
                     <div className="bg-background p-3 rounded border font-mono text-sm">
-                      {simulationResult.redactedText}
+                      {simulationResult.processedText || (simulationResult.status === 'blocked' ? 'Content blocked by service' : 'No text returned')}
                     </div>
                   </div>
                   
+                  {/* Show reasons if available */}
+                  {simulationResult.reasons && simulationResult.reasons.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Reasons</label>
+                      <div className="flex flex-wrap gap-2">
+                        {simulationResult.reasons.map((reason, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {reason}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* PII Entities */}
                   {simulationResult.entities && simulationResult.entities.length > 0 && (
                     <div>
                       <label className="text-sm font-medium mb-2 block">Detected Entities</label>
                       <div className="flex flex-wrap gap-2">
                         {simulationResult.entities.map((entity, index) => (
                           <Badge key={index} variant="destructive" className="text-xs">
-                            {entity.type}: {entity.text}
+                            {entity.type}: {entity.text || '[REDACTED]'}
                           </Badge>
                         ))}
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Toxicity Detection Results */}
-              {simulationResult.cleanText && (
-                <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Clean Text</label>
-                    <div className="bg-background p-3 rounded border font-mono text-sm">
-                      {simulationResult.cleanText}
-                    </div>
-                  </div>
                   
+                  {/* Flagged Content */}
                   {simulationResult.flagged && simulationResult.flagged.length > 0 && (
                     <div>
                       <label className="text-sm font-medium mb-2 block">Flagged Content</label>
@@ -728,19 +752,22 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                           <div key={index} className="bg-destructive/10 p-2 rounded border border-destructive/20">
                             <div className="flex justify-between items-center">
                               <Badge variant="destructive" className="text-xs">
-                                {item.type}: {(item.score * 100).toFixed(1)}%
+                                {item.type}{item.category ? ` (${item.category})` : ''}: {item.score ? (item.score * 100).toFixed(1) + '%' : 'Detected'}
                               </Badge>
                             </div>
-                            <div className="text-sm mt-1 font-mono">"{item.sentence}"</div>
+                            {(item.sentence || item.value) && (
+                              <div className="text-sm mt-1 font-mono">"{item.sentence || item.value}"</div>
+                            )}
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
 
+                  {/* Toxicity Scores */}
                   {simulationResult.scores && (
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Toxicity Scores</label>
+                      <label className="text-sm font-medium mb-2 block">Confidence Scores</label>
                       <div className="grid grid-cols-2 gap-2">
                         {Object.entries(simulationResult.scores).map(([key, score]) => (
                           <div key={key} className="flex justify-between text-xs">
@@ -748,6 +775,19 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                             <span className="font-mono">{(score * 100).toFixed(1)}%</span>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Gibberish specific info */}
+                  {simulationResult.isGibberish !== undefined && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Detection Info</label>
+                      <div className="text-xs space-y-1">
+                        <div>Is Gibberish: {simulationResult.isGibberish ? 'Yes' : 'No'}</div>
+                        {simulationResult.confidence && (
+                          <div>Confidence: {(simulationResult.confidence * 100).toFixed(1)}%</div>
+                        )}
                       </div>
                     </div>
                   )}
