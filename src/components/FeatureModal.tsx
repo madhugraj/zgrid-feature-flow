@@ -393,13 +393,21 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
         if (useLocalServices) {
           try {
             const result = await validateGibberish(tryItInput, 0.8, 10, true);
+            
+            // Handle both individual service response and combined gateway response
+            let gibberishResult = result;
+            if (result.results && result.results.gibberish) {
+              // Combined gateway response - extract gibberish service result
+              gibberishResult = result.results.gibberish;
+            }
+            
             setSimulationResult({
-              status: result.status,
-              processedText: result.clean_text,
-              isGibberish: result.is_gibberish,
-              confidence: result.confidence,
-              flagged: result.flagged,
-              reasons: result.reasons || [],
+              status: result.status || gibberishResult.status,
+              processedText: gibberishResult.clean_text,
+              isGibberish: gibberishResult.is_gibberish,
+              confidence: gibberishResult.confidence,
+              flagged: gibberishResult.flagged,
+              reasons: result.reasons || gibberishResult.reasons || [],
               serviceType: 'other'
             });
             
