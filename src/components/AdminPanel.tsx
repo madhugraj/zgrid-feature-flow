@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Play, Pause, Sparkles, Plus, RefreshCw, Settings, LogOut, User } from "lucide-react";
+import { Trash2, Play, Pause, Sparkles, Plus, RefreshCw, Settings, LogOut, User, TestTube, Download, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "./AuthProvider";
 import {
@@ -71,6 +71,10 @@ export default function AdminPanel() {
   
   // Manual Configuration State
   const [manualConfig, setManualConfig] = useState('');
+  
+  // Testing State
+  const [testResults, setTestResults] = useState<any>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     loadConfigurations();
@@ -255,6 +259,85 @@ export default function AdminPanel() {
   };
 
   const selectedServiceConfig = ALL_SERVICES.find(s => s.value === selectedService);
+
+  const handleTestConfiguration = async (configId: string) => {
+    try {
+      setIsTesting(true);
+      const config = configurations.find(c => c.id === configId);
+      if (!config) return;
+
+      // Import test suite dynamically
+      const { runServiceTestSuite } = await import("@/lib/serviceTestSuite");
+      const results = await runServiceTestSuite(selectedService);
+      
+      setTestResults(results);
+      toast({
+        title: "Configuration Test Complete",
+        description: `Test completed: ${results.passedTests}/${results.totalTests} tests passed`,
+        variant: results.passedTests === results.totalTests ? "default" : "destructive"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Test Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const exportConfigurations = () => {
+    const data = {
+      service: selectedService,
+      configurations: configurations,
+      timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedService}-configurations-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importConfigurations = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        if (data.configurations && Array.isArray(data.configurations)) {
+          // Save each configuration
+          for (const config of data.configurations) {
+            const { id, created_at, updated_at, ...configData } = config;
+            await saveConfiguration(configData);
+          }
+          
+          await loadConfigurations();
+          toast({
+            title: "Configurations Imported",
+            description: `Successfully imported ${data.configurations.length} configurations`
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Import Failed",
+          description: "Invalid configuration file format",
+          variant: "destructive"
+        });
+      }
+    };
+    input.click();
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -512,6 +595,16 @@ export default function AdminPanel() {
                         )}
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTestConfiguration(config.id)}
+                        disabled={isTesting}
+                        className="flex items-center gap-1"
+                      >
+                        <TestTube className="h-3 w-3" />
+                        Test
+                      </Button>
+                      <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDeleteConfig(config.id)}
@@ -537,6 +630,38 @@ export default function AdminPanel() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Test Results Display */}
+      {testResults && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Service Test Results - {testResults.service}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{testResults.passedTests}</div>
+                <div className="text-sm text-muted-foreground">Passed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">{testResults.failedTests}</div>
+                <div className="text-sm text-muted-foreground">Failed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{testResults.totalTests}</div>
+                <div className="text-sm text-muted-foreground">Total</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{Math.round(testResults.averageResponseTime)}ms</div>
+                <div className="text-sm text-muted-foreground">Avg Time</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
