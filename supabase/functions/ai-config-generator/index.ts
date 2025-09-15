@@ -25,43 +25,127 @@ serve(async (req) => {
     });
   }
 
+  // Validate API key format (should start with AIza for most Gemini API keys)
+  if (!geminiApiKey.startsWith('AIza') && !geminiApiKey.includes('-')) {
+    console.error('Invalid GEMINI_API_KEY format');
+    return new Response(JSON.stringify({ error: 'Invalid Gemini API key format' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
-    const { serviceName, sampleInputs, configType, description } = await req.json();
+    const requestData = await req.json();
+    const { serviceName, sampleInputs, configType, description } = requestData;
     
-    console.log(`Generating AI config for service: ${serviceName}, type: ${configType}`);
+    // Validate required fields
+    if (!serviceName || !sampleInputs || !configType) {
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields: serviceName, sampleInputs, and configType are required' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Validate sampleInputs is an array
+    if (!Array.isArray(sampleInputs) || sampleInputs.length === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'sampleInputs must be a non-empty array' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Sanitize and validate sample inputs
+    const sanitizedInputs = sampleInputs
+      .filter(input => typeof input === 'string' && input.trim().length > 0)
+      .map(input => input.trim())
+      .slice(0, 10); // Limit to 10 samples max
+    
+    if (sanitizedInputs.length === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'No valid sample inputs provided' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    console.log(`Generating AI config for service: ${serviceName}, type: ${configType}, samples: ${sanitizedInputs.length}`);
 
     // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Generate service-specific prompt
-    const prompt = generateServicePrompt(serviceName, configType, sampleInputs, description);
+    const prompt = generateServicePrompt(serviceName, configType, sanitizedInputs, description);
     
     // Call Gemini API
+    console.log('Calling Gemini API with prompt length:', prompt.length);
+    
+    const requestBody = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      }
+    };
+    
+    console.log('Request body structure:', JSON.stringify({
+      contents: requestBody.contents.map(c => ({ parts: c.parts.map(p => ({ textLength: p.text.length })) })),
+      generationConfig: requestBody.generationConfig
+    }));
+
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        }
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API error details:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: errorText
+      });
+      
+      let errorMessage = `Gemini API error: ${response.status} ${response.statusText}`;
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error && errorData.error.message) {
+          errorMessage += ` - ${errorData.error.message}`;
+        }
+      } catch (e) {
+        errorMessage += ` - ${errorText}`;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const geminiData = await response.json();
+    console.log('Gemini response structure:', JSON.stringify({
+      candidatesCount: geminiData.candidates?.length || 0,
+      hasContent: !!geminiData.candidates?.[0]?.content,
+      hasText: !!geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+    }));
+    
+    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content || !geminiData.candidates[0].content.parts || !geminiData.candidates[0].content.parts[0]) {
+      console.error('Invalid Gemini response structure:', JSON.stringify(geminiData, null, 2));
+      throw new Error('Invalid response structure from Gemini API');
+    }
+    
     const generatedText = geminiData.candidates[0].content.parts[0].text;
     
     console.log('Generated text:', generatedText);
@@ -77,7 +161,7 @@ serve(async (req) => {
         config_type: configType,
         config_data: configData,
         ai_generated: true,
-        sample_inputs: sampleInputs,
+        sample_inputs: sanitizedInputs,
         confidence_score: confidence,
         description: description || `AI-generated ${configType} for ${serviceName}`,
         is_active: true
