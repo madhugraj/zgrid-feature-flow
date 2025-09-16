@@ -125,9 +125,13 @@ serve(async (req) => {
         temperature: 0.3,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 4096,
+        maxOutputTokens: 2048, // Reduced to prevent timeouts
       }
     };
+    
+    // Add timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     console.log('Request body structure:', JSON.stringify({
       contents: requestBody.contents.map(c => ({ parts: c.parts.map(p => ({ textLength: p.text.length })) })),
@@ -147,7 +151,10 @@ serve(async (req) => {
         'x-goog-api-key': geminiApiKey,
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal, // Add timeout signal
     });
+    
+    clearTimeout(timeoutId); // Clear timeout if request completes
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -278,14 +285,13 @@ serve(async (req) => {
 });
 
 function generateServicePrompt(serviceName: string, configType: string, sampleInputs: string[], description?: string): string {
-  const basePrompt = `You are an expert AI safety and content moderation specialist. Generate a ${configType} configuration for the ${serviceName} service.
+  // Shortened prompt to reduce token usage and prevent timeouts
+  const basePrompt = `Generate ${configType} for ${serviceName} service.
 
-Sample inputs provided:
+Samples:
 ${sampleInputs.map((input, i) => `${i + 1}. "${input}"`).join('\n')}
 
-${description ? `Additional context: ${description}` : ''}
-
-Based on the service type and samples, generate the appropriate configuration:`;
+${description ? `Context: ${description}` : ''}`;
 
   const serviceSpecificInstructions = getServiceInstructions(serviceName, configType);
   
@@ -293,12 +299,12 @@ Based on the service type and samples, generate the appropriate configuration:`;
 
 ${serviceSpecificInstructions}
 
-IMPORTANT: Respond with ONLY a valid JSON object in this exact format:
+JSON format:
 {
   "confidence": 0.85,
-  "reasoning": "Brief explanation of the pattern analysis",
+  "reasoning": "Brief explanation",
   "config": {
-    // The actual configuration object here
+    // configuration here
   }
 }`;
 }
