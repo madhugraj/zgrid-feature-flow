@@ -117,16 +117,17 @@ serve(async (req) => {
       generationConfig: requestBody.generationConfig
     }));
 
-    // Use the official Gemini API endpoint with query parameter authentication
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey)}`;
+    // Use the official Gemini API endpoint with proper authentication
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
     
-    console.log(`Making request to: ${apiUrl.replace(geminiApiKey, '***HIDDEN***')}`);
-    console.log(`Using query parameter authentication for Gemini API`);
+    console.log(`Making request to: ${apiUrl}`);
+    console.log(`Using header-based authentication for Gemini API`);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': geminiApiKey,
       },
       body: JSON.stringify(requestBody),
     });
