@@ -89,8 +89,25 @@ serve(async (req) => {
     
     console.log(`Generating AI config for service: ${serviceName}, type: ${configType}, samples: ${sanitizedInputs.length}`);
 
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Get the authorization header to pass user context
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required' 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create Supabase client with user context
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
 
     // Generate service-specific prompt
     const prompt = generateServicePrompt(serviceName, configType, sanitizedInputs, description);
