@@ -108,7 +108,7 @@ serve(async (req) => {
         temperature: 0.3,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 4096,
       }
     };
     
@@ -186,15 +186,29 @@ serve(async (req) => {
     console.log('Gemini response structure:', JSON.stringify({
       candidatesCount: geminiData.candidates?.length || 0,
       hasContent: !!geminiData.candidates?.[0]?.content,
-      hasText: !!geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+      hasText: !!geminiData.candidates?.[0]?.content?.parts?.[0]?.text,
+      finishReason: geminiData.candidates?.[0]?.finishReason
     }));
     
-    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content || !geminiData.candidates[0].content.parts || !geminiData.candidates[0].content.parts[0]) {
-      console.error('Invalid Gemini response structure:', JSON.stringify(geminiData, null, 2));
-      throw new Error('Invalid response structure from Gemini API');
+    if (!geminiData.candidates || !geminiData.candidates[0]) {
+      console.error('No candidates in Gemini response:', JSON.stringify(geminiData, null, 2));
+      throw new Error('No candidates in Gemini API response');
     }
     
-    const generatedText = geminiData.candidates[0].content.parts[0].text;
+    const candidate = geminiData.candidates[0];
+    
+    // Check if response was truncated
+    if (candidate.finishReason === 'MAX_TOKENS') {
+      console.error('Gemini response was truncated due to token limit');
+      throw new Error('Response was truncated due to token limit. Please try with a shorter prompt.');
+    }
+    
+    if (!candidate.content || !candidate.content.parts || !candidate.content.parts[0] || !candidate.content.parts[0].text) {
+      console.error('Invalid Gemini response structure:', JSON.stringify(geminiData, null, 2));
+      throw new Error('Invalid response structure from Gemini API - missing content parts');
+    }
+    
+    const generatedText = candidate.content.parts[0].text;
     
     console.log('Generated text:', generatedText);
 
