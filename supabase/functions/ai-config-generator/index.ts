@@ -118,7 +118,7 @@ serve(async (req) => {
     }));
 
     // Try the official Gemini API endpoint with proper authentication
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
     
     console.log(`Making request to: ${apiUrl}`);
     console.log(`Request headers will include API key in Authorization header`);
