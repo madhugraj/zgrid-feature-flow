@@ -117,45 +117,19 @@ serve(async (req) => {
       generationConfig: requestBody.generationConfig
     }));
 
-    // Try the official Gemini API endpoint with proper authentication
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+    // Use the official Gemini API endpoint with query parameter authentication
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey)}`;
     
-    console.log(`Making request to: ${apiUrl}`);
-    console.log(`Request headers will include API key in Authorization header`);
+    console.log(`Making request to: ${apiUrl.replace(geminiApiKey, '***HIDDEN***')}`);
+    console.log(`Using query parameter authentication for Gemini API`);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': geminiApiKey,  // Try header-based auth
       },
       body: JSON.stringify(requestBody),
     });
-    
-    // If header auth fails, try query parameter
-    if (!response.ok && response.status === 400) {
-      console.log('Header auth failed, trying query parameter method...');
-      const queryUrl = `${apiUrl}?key=${encodeURIComponent(geminiApiKey)}`;
-      
-      const fallbackResponse = await fetch(queryUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-      
-      // Use the fallback response for the rest of the function
-      if (fallbackResponse.ok || fallbackResponse.status !== 400) {
-        console.log('Query parameter method used');
-        Object.defineProperty(response, 'ok', { value: fallbackResponse.ok });
-        Object.defineProperty(response, 'status', { value: fallbackResponse.status });
-        Object.defineProperty(response, 'statusText', { value: fallbackResponse.statusText });
-        Object.defineProperty(response, 'text', { value: fallbackResponse.text.bind(fallbackResponse) });
-        Object.defineProperty(response, 'json', { value: fallbackResponse.json.bind(fallbackResponse) });
-        Object.defineProperty(response, 'headers', { value: fallbackResponse.headers });
-      }
-    }
 
     if (!response.ok) {
       const errorText = await response.text();
