@@ -9,7 +9,6 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -17,18 +16,33 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (!geminiApiKey) {
-    console.error('GEMINI_API_KEY not found');
+  // Validate and sanitize API key
+  const rawGeminiApiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!rawGeminiApiKey) {
+    console.error('GEMINI_API_KEY environment variable is not set');
     return new Response(JSON.stringify({ error: 'Gemini API key not configured' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // Basic API key validation - just check it exists and has reasonable length
-  if (geminiApiKey.length < 10) {
-    console.error('GEMINI_API_KEY appears to be too short');
-    return new Response(JSON.stringify({ error: 'Invalid Gemini API key format' }), {
+  // Clean and validate the API key
+  const geminiApiKey = rawGeminiApiKey.trim();
+  if (geminiApiKey.length < 20) {
+    console.error(`GEMINI_API_KEY appears to be too short: ${geminiApiKey.length} characters`);
+    return new Response(JSON.stringify({ error: 'Invalid Gemini API key format - key too short' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Log API key info for debugging (first 6 and last 4 characters)
+  console.log(`Using API Key: ${geminiApiKey.substring(0, 6)}...${geminiApiKey.substring(geminiApiKey.length - 4)} (length: ${geminiApiKey.length})`);
+  
+  // Check if key looks like a valid Google AI API key format
+  if (!geminiApiKey.match(/^[A-Za-z0-9_-]+$/)) {
+    console.error('GEMINI_API_KEY contains invalid characters');
+    return new Response(JSON.stringify({ error: 'Invalid Gemini API key format - invalid characters' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -103,41 +117,92 @@ serve(async (req) => {
       generationConfig: requestBody.generationConfig
     }));
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+    // Try the official Gemini API endpoint with proper authentication
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent`;
+    
+    console.log(`Making request to: ${apiUrl}`);
+    console.log(`Request headers will include API key in Authorization header`);
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': geminiApiKey,  // Try header-based auth
       },
       body: JSON.stringify(requestBody),
     });
+    
+    // If header auth fails, try query parameter
+    if (!response.ok && response.status === 400) {
+      console.log('Header auth failed, trying query parameter method...');
+      const queryUrl = `${apiUrl}?key=${encodeURIComponent(geminiApiKey)}`;
+      
+      const fallbackResponse = await fetch(queryUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      // Use the fallback response for the rest of the function
+      if (fallbackResponse.ok || fallbackResponse.status !== 400) {
+        console.log('Query parameter method used');
+        Object.defineProperty(response, 'ok', { value: fallbackResponse.ok });
+        Object.defineProperty(response, 'status', { value: fallbackResponse.status });
+        Object.defineProperty(response, 'statusText', { value: fallbackResponse.statusText });
+        Object.defineProperty(response, 'text', { value: fallbackResponse.text.bind(fallbackResponse) });
+        Object.defineProperty(response, 'json', { value: fallbackResponse.json.bind(fallbackResponse) });
+        Object.defineProperty(response, 'headers', { value: fallbackResponse.headers });
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error details:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: errorText
-      });
+      
+      console.error('=== GEMINI API ERROR DEBUG ===');
+      console.error('Status:', response.status);
+      console.error('Status Text:', response.statusText);
+      console.error('Response Headers:', Object.fromEntries(response.headers.entries()));
+      console.error('Response Body:', errorText);
+      console.error('API Key Used (masked):', `${geminiApiKey.substring(0, 6)}...${geminiApiKey.substring(geminiApiKey.length - 4)}`);
+      console.error('Request URL used:', apiUrl);
+      console.error('================================');
       
       let errorMessage = `Gemini API error: ${response.status} ${response.statusText}`;
+      let apiError = 'Unknown API error';
       
       try {
         const errorData = JSON.parse(errorText);
-        if (errorData.error && errorData.error.message) {
-          errorMessage += ` - ${errorData.error.message}`;
+        if (errorData.error) {
+          apiError = errorData.error.message || errorData.error.code || 'API error without message';
+          errorMessage += ` - ${apiError}`;
+          
+          // Special handling for authentication errors
+          if (errorData.error.message && errorData.error.message.includes('API key')) {
+            console.error('API Key validation failed. Please check:');
+            console.error('1. API key is correctly set in Supabase secrets');
+            console.error('2. API key has correct permissions for Gemini API');
+            console.error('3. API key is not expired or disabled');
+          }
         }
       } catch (e) {
+        apiError = errorText;
         errorMessage += ` - ${errorText}`;
       }
       
-      // Return a more user-friendly error response instead of throwing
+      // Return detailed error for debugging
       return new Response(JSON.stringify({ 
         error: errorMessage,
-        details: 'API call failed',
-        status: response.status 
+        details: {
+          status: response.status,
+          statusText: response.statusText,
+          apiError: apiError,
+          timestamp: new Date().toISOString(),
+          debugInfo: 'Check edge function logs for full details'
+        }
       }), {
-        status: response.status,
+        status: response.status >= 500 ? 500 : response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
