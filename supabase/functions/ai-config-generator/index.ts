@@ -17,9 +17,9 @@ serve(async (req) => {
   }
 
   // Validate and sanitize API key
-  const rawGeminiApiKey = Deno.env.get('GEMINI_API_KEY_1');
+  const rawGeminiApiKey = Deno.env.get('GEMINI_API_KEY');
   if (!rawGeminiApiKey) {
-    console.error('GEMINI_API_KEY_1 environment variable is not set');
+    console.error('GEMINI_API_KEY environment variable is not set');
     return new Response(JSON.stringify({ error: 'Gemini API key not configured' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
