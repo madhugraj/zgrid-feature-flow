@@ -8,7 +8,7 @@ export type ServiceName =
 
 export interface ServiceConfiguration {
   id: string;
-  service_name: ServiceName;
+  service_name: string; // Changed from ServiceName to string to match database
   config_type: string;
   config_data: any;
   ai_generated: boolean;

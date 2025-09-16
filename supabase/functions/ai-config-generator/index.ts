@@ -25,9 +25,9 @@ serve(async (req) => {
     });
   }
 
-  // Validate API key format (should start with AIza for most Gemini API keys)
-  if (!geminiApiKey.startsWith('AIza') && !geminiApiKey.includes('-')) {
-    console.error('Invalid GEMINI_API_KEY format');
+  // Basic API key validation - just check it exists and has reasonable length
+  if (geminiApiKey.length < 10) {
+    console.error('GEMINI_API_KEY appears to be too short');
     return new Response(JSON.stringify({ error: 'Invalid Gemini API key format' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -131,7 +131,15 @@ serve(async (req) => {
         errorMessage += ` - ${errorText}`;
       }
       
-      throw new Error(errorMessage);
+      // Return a more user-friendly error response instead of throwing
+      return new Response(JSON.stringify({ 
+        error: errorMessage,
+        details: 'API call failed',
+        status: response.status 
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const geminiData = await response.json();

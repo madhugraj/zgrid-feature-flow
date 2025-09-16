@@ -25,7 +25,7 @@ export type Database = {
           id: string
           is_active: boolean
           sample_inputs: string[] | null
-          service_name: Database["public"]["Enums"]["service_name"]
+          service_name: string
           updated_at: string
         }
         Insert: {
@@ -38,7 +38,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           sample_inputs?: string[] | null
-          service_name: Database["public"]["Enums"]["service_name"]
+          service_name: string
           updated_at?: string
         }
         Update: {
@@ -51,7 +51,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           sample_inputs?: string[] | null
-          service_name?: Database["public"]["Enums"]["service_name"]
+          service_name?: string
           updated_at?: string
         }
         Relationships: []
