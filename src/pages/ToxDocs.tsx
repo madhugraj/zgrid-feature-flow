@@ -100,7 +100,7 @@ Body:
         </div>
         <div className="border rounded p-3 bg-yellow-50 border-yellow-200">
           <div className="font-medium text-yellow-800">fixed</div>
-          <div className="text-sm text-yellow-700">Toxic content removed, clean version provided</div>
+          <div className="text-sm text-yellow-700">Toxic data found</div>
         </div>
         <div className="border rounded p-3 bg-red-50 border-red-200">
           <div className="font-medium text-red-800">blocked</div>
