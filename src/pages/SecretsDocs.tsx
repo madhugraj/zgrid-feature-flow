@@ -17,7 +17,7 @@ export default function SecretsDocs() {
 
   const responseExample = `{
   "status": "blocked|pass|fixed",
-  "clean_text": "processed content",
+  "clean_text": "processed text",
   "flagged": [
     {
       "type": "secret",
@@ -27,9 +27,7 @@ export default function SecretsDocs() {
       "end": 10,
       "score": 0.95,
       "engine": "detection_engine",
-      "severity": 5,
-      "value": "secret_value",
-      "snippet": "context around secret"
+      "severity": 5
     }
   ],
   "steps": [

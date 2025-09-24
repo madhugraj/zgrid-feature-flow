@@ -150,40 +150,15 @@ export default function PiiDocs() {
             <h2 className="text-2xl font-semibold text-foreground">Response Format</h2>
             <Code
               code={`{
-  "status": "fixed",
-  "redacted_text": "Email [EMAIL], phone [PHONE], meet [PERSON] in [LOCATION]",
+  "status": "fixed|pass",
+  "redacted_text": "processed text with PII redacted",
   "entities": [
     {
-      "type": "EMAIL_ADDRESS",
-      "value": "john.doe@acme.com",
-      "start": 6,
-      "end": 22,
-      "score": 1.0,
-      "replacement": "[EMAIL]"
-    },
-    {
-      "type": "PHONE_NUMBER", 
-      "value": "+1 (415) 555-1212",
-      "start": 30,
-      "end": 47,
+      "type": "ENTITY_TYPE",
+      "start": 0,
+      "end": 10,
       "score": 0.95,
-      "replacement": "[PHONE]"
-    },
-    {
-      "type": "PERSON",
-      "value": "Sam",
-      "start": 54,
-      "end": 57,
-      "score": 0.85,
-      "replacement": "[PERSON]"
-    },
-    {
-      "type": "LOCATION",
-      "value": "Mumbai",
-      "start": 61,
-      "end": 67,
-      "score": 0.90,
-      "replacement": "[LOCATION]"
+      "replacement": "[ENTITY]"
     }
   ],
   "steps": [
@@ -191,7 +166,7 @@ export default function PiiDocs() {
       "name": "entity_detection",
       "passed": true,
       "details": {
-        "entities_found": 4,
+        "entities_found": 1,
         "ml_engine": "spacy_transformers"
       }
     },
@@ -199,7 +174,7 @@ export default function PiiDocs() {
       "name": "pattern_matching",
       "passed": true,
       "details": {
-        "patterns_matched": 2,
+        "patterns_matched": 1,
         "regex_engine": "presidio"
       }
     }

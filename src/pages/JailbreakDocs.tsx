@@ -135,30 +135,24 @@ export default function JailbreakDocs() {
             <h2 className="text-2xl font-semibold text-foreground">Response Format</h2>
             <Code
               code={`{
-  "status": "blocked",
-  "clean_text": "",
+  "status": "blocked|pass|filtered",
+  "clean_text": "processed text",
   "flagged": [
     {
       "type": "jailbreak",
-      "score": 0.98
+      "score": 0.95
     },
     {
       "type": "rule",
-      "rule": "IGNORE_PREVIOUS",
-      "span": [0, 32],
-      "token": "Ignore all previous instructions"
-    },
-    {
-      "type": "rule",
-      "rule": "DAN_ROLE",
-      "span": [41, 47],
-      "token": "as DAN"
+      "rule": "RULE_NAME",
+      "span": [0, 10],
+      "token": "detected_pattern"
     }
   ],
   "scores": {
-    "classifier": 0.98,
+    "classifier": 0.95,
     "similarity": null,
-    "rule_hits": 2
+    "rule_hits": 1
   },
   "steps": [
     {
@@ -166,7 +160,7 @@ export default function JailbreakDocs() {
       "passed": false,
       "details": {
         "model": "jackhhao/jailbreak-classifier (local)",
-        "score": 0.98,
+        "score": 0.95,
         "threshold": 0.5
       }
     },
@@ -174,9 +168,9 @@ export default function JailbreakDocs() {
       "name": "rules",
       "passed": false,
       "details": {
-        "hits": 2,
+        "hits": 1,
         "threshold": 1,
-        "rules": ["IGNORE_PREVIOUS", "DAN_ROLE"]
+        "rules": ["RULE_NAME"]
       }
     },
     {

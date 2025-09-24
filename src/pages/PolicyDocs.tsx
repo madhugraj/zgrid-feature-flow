@@ -138,13 +138,13 @@ export default function PolicyDocs() {
             <h2 className="text-2xl font-semibold text-foreground">Response Format</h2>
             <Code
               code={`{
-  "status": "blocked",
-  "clean_text": "",
-  "decision": "disallowed",
+  "status": "blocked|pass|filtered",
+  "clean_text": "processed text",
+  "decision": "disallowed|allowed",
   "violations": [
     {
-      "category": "Illicit behavior",
-      "evidence": "make a bomb"
+      "category": "Policy Category",
+      "evidence": "violating content"
     }
   ],
   "steps": [

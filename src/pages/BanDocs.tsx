@@ -21,7 +21,7 @@ export default function BanDocs() {
           {/* Header */}
           <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Ban / Bias & Brand-Safety API
+              Ban / Bias API
             </h1>
             <p className="text-xl text-muted-foreground">
               Block or sanitize banned terms, slurs, and brand-unsafe content with flexible matching modes
@@ -141,20 +141,14 @@ export default function BanDocs() {
             <h2 className="text-2xl font-semibold text-foreground">Response Format</h2>
             <Code
               code={`{
-  "status": "fixed",
-  "clean_text": "This looks like ***. Extreme *** content ahead.",
+  "status": "fixed|pass|blocked",
+  "clean_text": "processed text",
   "flagged": [
     {
       "type": "ban",
-      "token": "ScamCoin",
-      "list": "brands",
-      "span": [17, 25]
-    },
-    {
-      "type": "ban",
-      "token": "violence",
-      "list": "safety",
-      "span": [36, 44]
+      "token": "detected_term",
+      "list": "list_name",
+      "span": [0, 10]
     }
   ],
   "steps": [
@@ -162,7 +156,7 @@ export default function BanDocs() {
       "name": "banlist",
       "passed": false,
       "details": {
-        "hits": 2,
+        "hits": 1,
         "mode": "whole_word"
       }
     }

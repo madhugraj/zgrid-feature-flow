@@ -49,30 +49,30 @@ Body:
 
       <h2 className="mt-6 text-xl font-semibold">Response</h2>
       <Code code={`{
-  "status": "pass | fixed | blocked",
-  "clean_text": "But also here is some useful info.",
+  "status": "pass|fixed|blocked",
+  "clean_text": "processed text",
   "flagged": [
     {
       "type": "toxicity",
-      "score": 0.98780757188797,
-      "span": [0, 17],
-      "sentence": "You are an idiot.",
+      "score": 0.95,
+      "span": [0, 10],
+      "sentence": "detected sentence",
       "token": null
     }
   ],
   "scores": {
-    "toxicity": 0.98780757188797,
-    "severe_toxicity": 0.042480338364839554,
-    "obscene": 0.7727358341217041,
-    "threat": 0.0013019745238125324,
-    "insult": 0.9573231339454651,
-    "identity_attack": 0.013347610831260681,
+    "toxicity": 0.95,
+    "severe_toxicity": 0.1,
+    "obscene": 0.8,
+    "threat": 0.05,
+    "insult": 0.9,
+    "identity_attack": 0.1,
     "sexual_explicit": 0.0
   },
   "steps": [
     {
       "name": "detoxify",
-      "passed": true,
+      "passed": false,
       "details": {
         "mode": "sentence",
         "threshold": 0.5,
@@ -89,7 +89,7 @@ Body:
       }
     }
   ],
-  "reasons": ["Toxic sentences removed."]
+  "reasons": ["Toxic content processed"]
 }`} />
 
       <h2 className="mt-6 text-xl font-semibold">Response Status</h2>
