@@ -134,9 +134,6 @@ export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
               </a>
             </Button>
             
-            <div className="text-xs text-muted-foreground/60 font-mono">
-              → {feature.defaultOutputPlaceholder}
-            </div>
           </div>
         </CardContent>
       </Card>

@@ -4,7 +4,6 @@ export interface Feature {
   category: string;
   description: string; // long description
   exampleInput: string; // long example
-  exampleOutput: string; // long example
   repoDependency: string;
   referenceLink: string; // URL
   tags: string[];

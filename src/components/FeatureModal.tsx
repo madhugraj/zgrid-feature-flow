@@ -628,18 +628,6 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                 </pre>
               </div>
             </div>
-            
-            <div>
-              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                Example Output
-              </h4>
-              <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
-                <pre className="text-sm whitespace-pre-wrap font-mono">
-                  {feature.exampleOutput}
-                </pre>
-              </div>
-            </div>
           </div>
 
           <Separator />
