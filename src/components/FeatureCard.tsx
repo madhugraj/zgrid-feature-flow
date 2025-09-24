@@ -53,84 +53,84 @@ export function FeatureCard({ feature, onFeatureClick }: FeatureCardProps) {
 
   return (
     <Card 
-      className="h-full feature-card glass-card group fade-in hover-scale cursor-pointer relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-glow before:opacity-0 hover:before:opacity-20 before:transition-opacity before:duration-300 max-h-72"
+      className="h-full feature-card glass-card group fade-in hover-scale cursor-pointer relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-glow before:opacity-0 hover:before:opacity-20 before:transition-opacity before:duration-300"
       onClick={() => onFeatureClick?.(feature)}
     >
-        <CardHeader className="pb-2 px-3 pt-3">
-          <div className="flex items-start justify-between gap-2">
+        <CardHeader className="pb-3 px-4 pt-4">
+          <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <Badge
                 variant="outline" 
-                className={`mb-2 interactive-badge text-xs font-medium ${getCategoryColor(feature.category)}`}
+                className={`mb-3 interactive-badge text-xs font-medium ${getCategoryColor(feature.category)}`}
               >
                 {feature.category}
               </Badge>
-              <h3 className="font-semibold text-sm leading-tight mb-1 text-card-foreground">{feature.name}</h3>
-              <p className="text-xs text-muted-foreground font-mono opacity-70">
+              <h3 className="font-semibold text-base leading-tight mb-2 text-card-foreground">{feature.name}</h3>
+              <p className="text-xs text-muted-foreground font-mono opacity-70 mb-3">
                 {feature.featureCode}
               </p>
             </div>
             <Button
               size="sm"
               onClick={handleAddToCart}
-              className="btn-gradient shrink-0 h-7 w-7 p-0 opacity-80 group-hover:opacity-100 hover:scale-110 transition-transform duration-200 shadow-lg hover:shadow-xl"
+              className="btn-gradient shrink-0 h-8 w-8 p-0 opacity-80 group-hover:opacity-100 hover:scale-110 transition-transform duration-200 shadow-lg hover:shadow-xl"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
         
-        <CardContent className="pt-0 px-3 pb-3 space-y-2">
-          <p className="text-xs text-muted-foreground/80 line-clamp-2 leading-snug">
+        <CardContent className="pt-0 px-4 pb-4 space-y-3">
+          <p className="text-sm text-muted-foreground/90 line-clamp-3 leading-relaxed">
             {feature.description}
           </p>
 
-          <div className="space-y-2">
-            {/* Input Types - Minimalist */}
-            <div className="flex items-center gap-1.5">
-              <Database className="h-3 w-3 text-muted-foreground/60" />
-              <div className="flex flex-wrap gap-1">
-                {feature.standardInputs.slice(0, 2).map((input, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs py-0.5 px-1.5 bg-muted/30">
+          <div className="space-y-3">
+            {/* Input Types - Enhanced */}
+            <div className="flex items-center gap-2">
+              <Database className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <div className="flex flex-wrap gap-1.5">
+                {feature.standardInputs.slice(0, 3).map((input, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs py-1 px-2 bg-muted/40 hover:bg-muted/60 transition-colors">
                     {input}
                   </Badge>
                 ))}
-                {feature.standardInputs.length > 2 && (
-                  <Badge variant="secondary" className="text-xs py-0.5 px-1.5 bg-muted/30">
-                    +{feature.standardInputs.length - 2}
+                {feature.standardInputs.length > 3 && (
+                  <Badge variant="secondary" className="text-xs py-1 px-2 bg-muted/40">
+                    +{feature.standardInputs.length - 3}
                   </Badge>
                 )}
               </div>
             </div>
 
-            {/* Tags - Minimalist */}
-            <div className="flex items-center gap-1.5">
-              <Tag className="h-3 w-3 text-muted-foreground/60" />
-              <div className="flex flex-wrap gap-1">
-                {feature.tags.slice(0, 2).map((tag, index) => (
-                  <span key={index} className="text-xs text-muted-foreground/70 bg-muted/20 px-1.5 py-0.5 rounded">
+            {/* Tags - Enhanced */}
+            <div className="flex items-center gap-2">
+              <Tag className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <div className="flex flex-wrap gap-1.5">
+                {feature.tags.slice(0, 3).map((tag, index) => (
+                  <span key={index} className="text-xs text-muted-foreground/80 bg-muted/30 px-2 py-1 rounded-md hover:bg-muted/40 transition-colors">
                     {tag}
                   </span>
                 ))}
-                {feature.tags.length > 2 && (
-                  <span className="text-xs text-muted-foreground/70 bg-muted/20 px-1.5 py-0.5 rounded">
-                    +{feature.tags.length - 2}
+                {feature.tags.length > 3 && (
+                  <span className="text-xs text-muted-foreground/80 bg-muted/30 px-2 py-1 rounded-md">
+                    +{feature.tags.length - 3}
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-1 border-t border-border/30">
+          <div className="flex items-center justify-between pt-2 border-t border-border/40">
             <Button 
               variant="ghost" 
               size="sm" 
-              className="text-xs h-6 px-2 text-muted-foreground/80 hover:text-foreground" 
+              className="text-xs h-7 px-3 text-muted-foreground/80 hover:text-foreground hover:bg-muted/50 transition-all" 
               asChild
             >
               <a href={feature.referenceLink} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Docs
+                <ExternalLink className="h-3 w-3 mr-1.5" />
+                Documentation
               </a>
             </Button>
             

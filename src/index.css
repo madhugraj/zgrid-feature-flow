@@ -190,10 +190,11 @@
   /* Enhanced Feature Card */
   .feature-card {
     @apply cursor-pointer transition-all duration-300 relative overflow-hidden;
-    background: linear-gradient(135deg, hsl(var(--card)/0.8), hsl(var(--muted)/0.9), hsl(var(--card)/0.7));
+    background: linear-gradient(135deg, hsl(var(--card)/0.95), hsl(var(--muted)/0.3), hsl(var(--card)/0.95));
     box-shadow: var(--shadow-feature), inset 0 1px 0 hsl(var(--foreground)/0.05);
-    border: 1px solid hsl(var(--border)/0.3);
-    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border)/0.4);
+    backdrop-filter: blur(16px);
+    min-height: 280px;
   }
   
   .feature-card::before {
@@ -210,9 +211,9 @@
   }
   
   .feature-card:hover {
-    transform: translateY(-2px) scale(1.01);
-    box-shadow: var(--shadow-hover);
-    border-color: hsl(var(--primary)/0.2);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-hover), 0 12px 40px -8px hsl(var(--primary) / 0.2);
+    border-color: hsl(var(--primary)/0.3);
   }
   
   .feature-card:hover::before {
