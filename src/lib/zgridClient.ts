@@ -106,7 +106,9 @@ export async function healthGateway() {
 
 // Legacy health helpers (for backward compatibility)
 export async function healthPII() { 
-  return healthGateway();
+  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
+  if (PII_BASE === "mock") return { status: "ok", service: "pii-mock" };
+  return xfetch(`${PII_BASE}/health`);
 }
 
 export async function healthTox() { 
@@ -324,7 +326,7 @@ export async function addPIIEntities(config: {
   }>;
 }) {
   // Admin operations still use individual service endpoints
-  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://localhost:8000";
+  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
   
   if (PII_BASE === "mock") {
     return { status: "success", message: "Custom PII entities added (mock)" };
@@ -338,7 +340,7 @@ export async function addPIIEntities(config: {
 }
 
 export async function getPIIEntities() {
-  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://localhost:8000";
+  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
   
   if (PII_BASE === "mock") {
     return { entities: [], placeholders: [], thresholds: [] };
@@ -350,7 +352,7 @@ export async function getPIIEntities() {
 }
 
 export async function clearPIIEntities() {
-  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://localhost:8000";
+  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
   
   if (PII_BASE === "mock") {
     return { status: "success", message: "PII entities cleared (mock)" };
