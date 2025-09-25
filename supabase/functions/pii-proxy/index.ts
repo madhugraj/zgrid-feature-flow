@@ -20,7 +20,11 @@ serve(async (req) => {
     const requestBody = await req.json()
     console.log('PII Proxy: Request body:', requestBody)
     
-    const { text, entities, return_spans, action_on_fail } = requestBody
+    // Access properties directly instead of destructuring
+    const text = requestBody.text
+    const entities = requestBody.entities
+    const return_spans = requestBody.return_spans
+    const action_on_fail = requestBody.action_on_fail
     
     const piiServiceUrl = 'http://52.170.163.62:8000/validate'
     const apiKey = Deno.env.get('PII_SERVICE_API_KEY')
