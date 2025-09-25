@@ -23,12 +23,30 @@ serve(async (req) => {
     const { text, entities, return_spans, action_on_fail } = requestBody
     
     const piiServiceUrl = 'http://52.170.163.62:8000/validate'
+    const apiKey = Deno.env.get('PII_SERVICE_API_KEY')
     console.log('PII Proxy: Making request to PII service:', piiServiceUrl)
+    console.log('PII Proxy: API Key present:', !!apiKey)
+    
+    if (!apiKey) {
+      console.error('PII Proxy: API Key not configured')
+      return new Response(
+        JSON.stringify({ error: 'PII service API key not configured' }),
+        { 
+          status: 500,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      )
+    }
     
     const response = await fetch(piiServiceUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'X-API-Key': apiKey,
       },
       body: JSON.stringify({
         text,
