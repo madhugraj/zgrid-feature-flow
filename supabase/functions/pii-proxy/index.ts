@@ -26,6 +26,7 @@ serve(async (req) => {
     const apiKey = Deno.env.get('PII_SERVICE_API_KEY')
     console.log('PII Proxy: Making request to PII service:', piiServiceUrl)
     console.log('PII Proxy: API Key present:', !!apiKey)
+    console.log('PII Proxy: Request payload:', { text, entities, return_spans, action_on_fail })
     
     if (!apiKey) {
       console.error('PII Proxy: API Key not configured')
@@ -40,6 +41,16 @@ serve(async (req) => {
         }
       )
     }
+
+    // Try different request formats to see what the API expects
+    const requestPayload = {
+      text: text,
+      entities: entities || [],
+      return_spans: return_spans || true,
+      action_on_fail: action_on_fail || "mask"
+    }
+    
+    console.log('PII Proxy: Sending payload:', JSON.stringify(requestPayload))
     
     const response = await fetch(piiServiceUrl, {
       method: 'POST',
@@ -48,12 +59,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'X-API-Key': apiKey,
       },
-      body: JSON.stringify({
-        text,
-        entities,
-        return_spans,
-        action_on_fail
-      })
+      body: JSON.stringify(requestPayload)
     })
 
     const result = await response.json()
