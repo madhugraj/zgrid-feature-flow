@@ -255,6 +255,13 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             const status = result.status || (entities.length > 0 ? 'fixed' : 'pass');
             const cleanedText = result.redacted_text || result.clean_text || tryItInput;
             
+            console.log('Processed PII Data:', {
+              status,
+              cleanedText,
+              entities: entities.length,
+              originalResponse: result
+            });
+            
             setSimulationResult({
               status,
               processedText: cleanedText,
