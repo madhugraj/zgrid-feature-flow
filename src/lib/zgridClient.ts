@@ -216,45 +216,31 @@ export async function validateContent(text: string, options: {
 export async function validatePII(text: string, entities?: string[], return_spans?: boolean) {
   console.log('validatePII called with:', { text, entities, return_spans });
   
-  // Direct call to Azure PII service, bypassing the gateway
-  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
-  
-  if (PII_BASE === "mock") {
-    return { 
-      status: "pass", 
-      message: "PII validation passed (mock)",
-      spans: return_spans ? [] : undefined
-    };
-  }
+  // Use Supabase Edge Function to proxy the PII validation (avoids CORS issues)
+  const response = await xfetch(`https://bgczwmnqxmxusfwapqcn.supabase.co/functions/v1/pii-proxy`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnY3p3bW5xeG14dXNmd2FwcWNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMzYxOTIsImV4cCI6MjA3MjYxMjE5Mn0.TiUflKd1tsEeevILeZ7zWs93lcEheBuvH4mC_D8m-W4`
+    },
+    body: JSON.stringify({
+      text,
+      entities: entities || [
+        "EMAIL_ADDRESS", 
+        "PHONE_NUMBER", 
+        "CREDIT_CARD", 
+        "US_SSN", 
+        "PERSON", 
+        "LOCATION", 
+        "IN_AADHAAR", 
+        "IN_PAN"
+      ],
+      return_spans: return_spans || false,
+      action_on_fail: "mask"
+    })
+  });
 
-  try {
-    const response = await xfetch(`${PII_BASE}/validate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text,
-        entities: entities || [
-          "EMAIL_ADDRESS", 
-          "PHONE_NUMBER", 
-          "CREDIT_CARD", 
-          "US_SSN", 
-          "PERSON", 
-          "LOCATION", 
-          "IN_AADHAAR", 
-          "IN_PAN"
-        ],
-        return_spans: return_spans || false,
-        action_on_fail: "mask"
-      })
-    });
-
-    return response;
-  } catch (error) {
-    console.error('PII service error:', error);
-    throw error;
-  }
+  return response;
 }
 
 export async function validateTox(text: string, return_spans?: boolean) {
