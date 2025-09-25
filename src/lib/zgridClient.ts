@@ -216,21 +216,45 @@ export async function validateContent(text: string, options: {
 export async function validatePII(text: string, entities?: string[], return_spans?: boolean) {
   console.log('validatePII called with:', { text, entities, return_spans });
   
-  return validateContent(text, {
-    check_pii: true,
-    entities: entities || [
-      "EMAIL_ADDRESS", 
-      "PHONE_NUMBER", 
-      "CREDIT_CARD", 
-      "US_SSN", 
-      "PERSON", 
-      "LOCATION", 
-      "IN_AADHAAR", 
-      "IN_PAN"
-    ],
-    return_spans,
-    action_on_fail: "mask"
-  });
+  // Direct call to Azure PII service, bypassing the gateway
+  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
+  
+  if (PII_BASE === "mock") {
+    return { 
+      status: "pass", 
+      message: "PII validation passed (mock)",
+      spans: return_spans ? [] : undefined
+    };
+  }
+
+  try {
+    const response = await xfetch(`${PII_BASE}/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        entities: entities || [
+          "EMAIL_ADDRESS", 
+          "PHONE_NUMBER", 
+          "CREDIT_CARD", 
+          "US_SSN", 
+          "PERSON", 
+          "LOCATION", 
+          "IN_AADHAAR", 
+          "IN_PAN"
+        ],
+        return_spans: return_spans || false,
+        action_on_fail: "mask"
+      })
+    });
+
+    return response;
+  } catch (error) {
+    console.error('PII service error:', error);
+    throw error;
+  }
 }
 
 export async function validateTox(text: string, return_spans?: boolean) {
