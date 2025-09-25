@@ -18,19 +18,25 @@ serve(async (req) => {
   try {
     console.log('PII Proxy: Parsing request body')
     const requestBody = await req.json()
-    console.log('PII Proxy: Request body:', requestBody)
+    console.log('PII Proxy: Full request body:', JSON.stringify(requestBody))
     
-    // Access properties directly instead of destructuring
-    const text = requestBody.text
-    const entities = requestBody.entities
-    const return_spans = requestBody.return_spans
-    const action_on_fail = requestBody.action_on_fail
+    // Extract data with explicit checks
+    const text = requestBody?.text
+    const entities = requestBody?.entities || []
+    const return_spans = requestBody?.return_spans !== undefined ? requestBody.return_spans : true
+    const action_on_fail = requestBody?.action_on_fail || "mask"
+    
+    console.log('PII Proxy: Extracted values:', { 
+      text: text, 
+      entities: entities, 
+      return_spans: return_spans, 
+      action_on_fail: action_on_fail 
+    })
     
     const piiServiceUrl = 'http://52.170.163.62:8000/validate'
     const apiKey = Deno.env.get('PII_SERVICE_API_KEY')
     console.log('PII Proxy: Making request to PII service:', piiServiceUrl)
     console.log('PII Proxy: API Key present:', !!apiKey)
-    console.log('PII Proxy: Request payload:', { text, entities, return_spans, action_on_fail })
     
     if (!apiKey) {
       console.error('PII Proxy: API Key not configured')
@@ -46,15 +52,28 @@ serve(async (req) => {
       )
     }
 
-    // Try different request formats to see what the API expects
+    if (!text) {
+      console.error('PII Proxy: No text provided in request')
+      return new Response(
+        JSON.stringify({ error: 'Text field is required' }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      )
+    }
+
     const requestPayload = {
       text: text,
-      entities: entities || [],
-      return_spans: return_spans || true,
-      action_on_fail: action_on_fail || "mask"
+      entities: entities,
+      return_spans: return_spans,
+      action_on_fail: action_on_fail
     }
     
-    console.log('PII Proxy: Sending payload:', JSON.stringify(requestPayload))
+    console.log('PII Proxy: Sending payload to external API:', JSON.stringify(requestPayload))
     
     const response = await fetch(piiServiceUrl, {
       method: 'POST',
@@ -66,7 +85,9 @@ serve(async (req) => {
       body: JSON.stringify(requestPayload)
     })
 
+    console.log('PII Proxy: External API response status:', response.status)
     const result = await response.json()
+    console.log('PII Proxy: External API response:', JSON.stringify(result))
     
     return new Response(
       JSON.stringify(result),
