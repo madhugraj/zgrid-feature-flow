@@ -220,8 +220,7 @@ export async function validatePII(text: string, entities?: string[], return_span
   const response = await xfetch(`https://bgczwmnqxmxusfwapqcn.supabase.co/functions/v1/pii-proxy`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnY3p3bW5xeG14dXNmd2FwcWNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMzYxOTIsImV4cCI6MjA3MjYxMjE5Mn0.TiUflKd1tsEeevILeZ7zWs93lcEheBuvH4mC_D8m-W4`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       text,
