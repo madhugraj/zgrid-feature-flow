@@ -6,14 +6,22 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('PII Proxy: Received request', { method: req.method, url: req.url })
+  
   if (req.method === 'OPTIONS') {
+    console.log('PII Proxy: Handling CORS preflight')
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { text, entities, return_spans, action_on_fail } = await req.json()
+    console.log('PII Proxy: Parsing request body')
+    const requestBody = await req.json()
+    console.log('PII Proxy: Request body:', requestBody)
+    
+    const { text, entities, return_spans, action_on_fail } = requestBody
     
     const piiServiceUrl = 'http://52.170.163.62:8000/validate'
+    console.log('PII Proxy: Making request to PII service:', piiServiceUrl)
     
     const response = await fetch(piiServiceUrl, {
       method: 'POST',
