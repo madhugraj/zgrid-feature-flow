@@ -248,15 +248,18 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             );
             
             // Process PII service response - use redacted_text for display
-            const piiResult = result.results?.pii || result;
-            const entities = piiResult.entities || [];
-            const status = result.status || (entities.length > 0 ? 'blocked' : 'pass');
+            console.log('PII Service Response:', result);
+            
+            // Handle direct PII service response format
+            const entities = result.entities || [];
+            const status = result.status || (entities.length > 0 ? 'fixed' : 'pass');
+            const cleanedText = result.redacted_text || result.clean_text || tryItInput;
             
             setSimulationResult({
               status,
-              processedText: piiResult.redacted_text || result.clean_text,
+              processedText: cleanedText,
               entities: entities,
-              reasons: result.reasons || [],
+              reasons: result.reasons || [`Processed ${entities.length} entities`],
               serviceType: 'pii'
             });
             
