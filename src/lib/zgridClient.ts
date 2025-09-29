@@ -78,7 +78,25 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
       }
     }
 
-    const r = await fetch(url, {
+    // Add cache-busting timestamp to force fresh request
+    const cacheBuster = `?t=${Date.now()}&r=${Math.random()}`;
+    const finalUrl = url.includes('?') ? `${url}&${cacheBuster.slice(1)}` : `${url}${cacheBuster}`;
+    
+    console.log(`🔄 Making actual POST request to: ${finalUrl}`);
+    console.log(`📋 Request details:`, {
+      method,
+      headers: { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+        ...headers 
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+    });
+
+    const r = await fetch(finalUrl, {
       method,
       headers: { 
         "Content-Type": "application/json",
