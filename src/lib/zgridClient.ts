@@ -57,6 +57,17 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
     location: window.location.href 
   });
   
+  // For Lovable environments, try Supabase proxy first to bypass browser restrictions
+  if (window.location.hostname.includes('lovableproject.com') || window.location.hostname.includes('lovable.app')) {
+    console.log("🔄 Detected Lovable environment, trying Supabase proxy first...");
+    try {
+      return await xfetchProxy(url, { method, headers, body, timeoutMs });
+    } catch (proxyError) {
+      console.warn("⚠️ Proxy approach failed, falling back to direct fetch:", proxyError);
+      // Continue with direct fetch below
+    }
+  }
+  
   try {
     // Test CORS preflight for POST requests
     if (method === "POST") {
@@ -150,6 +161,31 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
 export async function healthGateway() { 
   if (GATEWAY_BASE === "mock") return { status: "ok", service: "gateway-mock" };
   return xfetch(`${GATEWAY_BASE}/health`); 
+}
+
+// Proxy function using Supabase edge function for Lovable environments
+async function xfetchProxy(url: string, { method="GET", headers={}, body, timeoutMs=12000 }: FetchOptions = {}) {
+  console.log(`🔄 Using Supabase proxy for: ${url}`);
+  
+  // Determine the endpoint from the URL
+  const endpoint = url.includes('/health') ? 'health' : 'validate';
+  const proxyUrl = `/functions/v1/gateway-proxy/${endpoint}`;
+  
+  const response = await fetch(proxyUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...headers
+    },
+    body: method === "GET" ? undefined : JSON.stringify(body || {}),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Proxy error: ${response.status} ${response.statusText}: ${errorText}`);
+  }
+
+  return await response.json();
 }
 
 // All health checks now use the gateway
