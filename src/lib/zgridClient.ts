@@ -53,6 +53,26 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   console.log(`🌐 Current origin: ${window.location.origin}`);
   
   try {
+    // First test if the endpoint is reachable with a simple test
+    if (method === "POST" && url.includes("/validate")) {
+      console.log("🧪 Testing endpoint connectivity first...");
+      try {
+        const testResponse = await fetch(url.replace("/validate", "/health"), {
+          method: "GET",
+          headers: { 
+            "ngrok-skip-browser-warning": "true",
+            "X-API-Key": headers["X-API-Key"] || ""
+          },
+          mode: "cors",
+          credentials: "omit",
+          cache: "no-store",
+        });
+        console.log(`🔍 Health check result: ${testResponse.status}`);
+      } catch (healthError) {
+        console.warn("⚠️ Health check failed:", healthError);
+      }
+    }
+
     const r = await fetch(url, {
       method,
       headers: { 
@@ -90,10 +110,10 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
     // More specific error handling
     if (e.name === 'AbortError') {
       throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
-    } else if (e instanceof TypeError) {
-      throw new Error(`Network error: Cannot connect to ${url}. Make sure the service is running on the correct port.`);
+    } else if (e instanceof TypeError && e.message === 'Failed to fetch') {
+      throw new Error(`CORS or network error: Cannot connect to ${url}. This might be:\n- CORS preflight failure for POST requests\n- The /validate endpoint might not exist\n- Network connectivity issues\n\nTry testing the health endpoint first: ${url.replace('/validate', '/health')}`);
     } else {
-      throw new Error(`Network error: ${e.message} - This might be a CORS issue. Make sure your local services allow cross-origin requests from ${window.location.origin}`);
+      throw new Error(`Network error: ${e.message}`);
     }
   }
 }
