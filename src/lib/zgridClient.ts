@@ -1,7 +1,7 @@
 type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
 // Content Moderation Gateway - Single endpoint for all services
-let GATEWAY_BASE = "/functions/v1/pii-proxy";
+let GATEWAY_BASE = "https://gateway.20.242.183.197.nip.io";
 let GATEWAY_KEY = "supersecret123";
 
 // Admin API Keys for individual services (legacy support)
