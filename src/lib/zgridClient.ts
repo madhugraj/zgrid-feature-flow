@@ -1,8 +1,8 @@
 type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
 
 // Content Moderation Gateway - Single endpoint for all services
-let GATEWAY_BASE = import.meta.env.VITE_GATEWAY_ENDPOINT || "http://localhost:8008";
-let GATEWAY_KEY = import.meta.env.VITE_GATEWAY_API_KEY || "supersecret123";
+let GATEWAY_BASE = "http://172.171.49.238:8008";
+let GATEWAY_KEY = "frontend-key";
 
 // Admin API Keys for individual services (legacy support)
 let PII_ADMIN_KEY = import.meta.env.VITE_PII_ADMIN_KEY || "piiprivileged123";
@@ -104,11 +104,9 @@ export async function healthGateway() {
   return xfetch(`${GATEWAY_BASE}/health`); 
 }
 
-// Legacy health helpers (for backward compatibility)
+// All health checks now use the gateway
 export async function healthPII() { 
-  const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
-  if (PII_BASE === "mock") return { status: "ok", service: "pii-mock" };
-  return xfetch(`${PII_BASE}/health`);
+  return healthGateway();
 }
 
 export async function healthTox() { 
@@ -136,9 +134,7 @@ export async function healthFormat() {
 }
 
 export async function healthGibberish() { 
-  const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
-  if (GIBBERISH_BASE === "mock") return { status: "ok", service: "gibberish-mock" };
-  return xfetch(`${GIBBERISH_BASE}/health`); 
+  return healthGateway();
 }
 
 // =================== UNIFIED CONTENT MODERATION API ===================
@@ -177,18 +173,16 @@ export async function validateContent(text: string, options: {
   
   const requestBody = { 
     text,
-    check_bias: options.check_bias || false,
-    check_toxicity: options.check_toxicity || false,
-    check_pii: options.check_pii || false,
-    check_secrets: options.check_secrets || false,
-    check_jailbreak: options.check_jailbreak || false,
-    check_gibberish: options.check_gibberish || false,
+    check_bias: options.check_bias !== undefined ? options.check_bias : true,
+    check_toxicity: options.check_toxicity !== undefined ? options.check_toxicity : true,
+    check_pii: options.check_pii !== undefined ? options.check_pii : true,
+    check_secrets: options.check_secrets !== undefined ? options.check_secrets : true,
+    check_jailbreak: options.check_jailbreak !== undefined ? options.check_jailbreak : true,
+    check_format: options.check_format !== undefined ? options.check_format : true,
+    check_gibberish: options.check_gibberish !== undefined ? options.check_gibberish : true,
     action_on_fail: options.action_on_fail || "refrain",
-    entities: options.entities,
-    expressions: options.expressions,
-    return_spans: options.return_spans || true,
-    gibberish_threshold: options.gibberish_threshold,
-    gibberish_min_length: options.gibberish_min_length
+    return_spans: options.return_spans !== undefined ? options.return_spans : true,
+    ...(options.entities && { entities: options.entities })
   };
   
   console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
@@ -216,30 +210,18 @@ export async function validateContent(text: string, options: {
 export async function validatePII(text: string, entities?: string[], return_spans?: boolean) {
   console.log('validatePII called with:', { text, entities, return_spans });
   
-  // Use Supabase Edge Function to proxy the PII validation (avoids CORS issues)
-  const response = await xfetch(`https://bgczwmnqxmxusfwapqcn.supabase.co/functions/v1/pii-proxy`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      text,
-      entities: entities || [
-        "EMAIL_ADDRESS", 
-        "PHONE_NUMBER", 
-        "CREDIT_CARD", 
-        "US_SSN", 
-        "PERSON", 
-        "LOCATION", 
-        "IN_AADHAAR", 
-        "IN_PAN"
-      ],
-      return_spans: return_spans || false,
-      action_on_fail: "mask"
-    })
+  return validateContent(text, {
+    check_pii: true,
+    check_bias: false,
+    check_toxicity: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "US_SSN", "PERSON", "LOCATION", "IN_AADHAAR", "IN_PAN"],
+    return_spans: return_spans !== undefined ? return_spans : true,
+    action_on_fail: "mask"
   });
-
-  return response;
 }
 
 export async function validateTox(text: string, return_spans?: boolean) {
@@ -247,7 +229,13 @@ export async function validateTox(text: string, return_spans?: boolean) {
   
   return validateContent(text, {
     check_toxicity: true,
-    return_spans,
+    check_bias: false,
+    check_pii: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    return_spans: return_spans !== undefined ? return_spans : true,
     action_on_fail: "filter"
   });
 }
@@ -257,7 +245,13 @@ export async function validateJailbreak(text: string, return_spans?: boolean) {
   
   return validateContent(text, {
     check_jailbreak: true,
-    return_spans,
+    check_bias: false,
+    check_toxicity: false,
+    check_pii: false,
+    check_secrets: false,
+    check_format: false,
+    check_gibberish: false,
+    return_spans: return_spans !== undefined ? return_spans : true,
     action_on_fail: "refrain"
   });
 }
@@ -267,7 +261,13 @@ export async function validateBan(text: string, return_spans?: boolean) {
   
   return validateContent(text, {
     check_bias: true,
-    return_spans,
+    check_toxicity: false,
+    check_pii: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    return_spans: return_spans !== undefined ? return_spans : true,
     action_on_fail: "refrain"
   });
 }
@@ -277,7 +277,13 @@ export async function validatePolicy(text: string, return_spans?: boolean) {
   
   return validateContent(text, {
     check_bias: true,
-    return_spans,
+    check_toxicity: false,
+    check_pii: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    return_spans: return_spans !== undefined ? return_spans : true,
     action_on_fail: "refrain"
   });
 }
@@ -287,7 +293,13 @@ export async function validateSecrets(text: string, return_spans?: boolean) {
   
   return validateContent(text, {
     check_secrets: true,
-    return_spans,
+    check_bias: false,
+    check_toxicity: false,
+    check_pii: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    return_spans: return_spans !== undefined ? return_spans : true,
     action_on_fail: "mask"
   });
 }
@@ -297,8 +309,13 @@ export async function validateFormat(text: string, expressions?: string[], retur
   
   return validateContent(text, {
     check_format: true,
-    expressions: expressions || ["Email {email}, phone {phone}"],
-    return_spans,
+    check_bias: false,
+    check_toxicity: false,
+    check_pii: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_gibberish: false,
+    return_spans: return_spans !== undefined ? return_spans : true,
     action_on_fail: "refrain"
   });
 }
@@ -306,12 +323,15 @@ export async function validateFormat(text: string, expressions?: string[], retur
 export async function validateGibberish(text: string, threshold?: number, min_length?: number, return_spans?: boolean) {
   console.log('validateGibberish called with:', { text, threshold, min_length, return_spans });
   
-  // Use the unified gateway endpoint instead of individual service
   return validateContent(text, {
     check_gibberish: true,
-    gibberish_threshold: threshold || 0.8,
-    gibberish_min_length: min_length || 10,
-    return_spans,
+    check_bias: false,
+    check_toxicity: false,
+    check_pii: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    return_spans: return_spans !== undefined ? return_spans : true,
     action_on_fail: "refrain"
   });
 }
