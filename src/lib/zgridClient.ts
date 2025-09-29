@@ -58,7 +58,12 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   });
   
   // For Lovable environments, try Supabase proxy first to bypass browser restrictions
-  if (window.location.hostname.includes('lovableproject.com') || window.location.hostname.includes('lovable.app')) {
+  const hostname = window.location.hostname;
+  console.log(`🔍 Hostname check: ${hostname}`);
+  console.log(`🔍 Contains lovableproject.com: ${hostname.includes('lovableproject.com')}`);
+  console.log(`🔍 Contains lovable.app: ${hostname.includes('lovable.app')}`);
+  
+  if (hostname.includes('lovableproject.com') || hostname.includes('lovable.app')) {
     console.log("🔄 Detected Lovable environment, trying Supabase proxy first...");
     try {
       return await xfetchProxy(url, { method, headers, body, timeoutMs });
@@ -66,6 +71,8 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
       console.warn("⚠️ Proxy approach failed, falling back to direct fetch:", proxyError);
       // Continue with direct fetch below
     }
+  } else {
+    console.log("🏠 Not a Lovable environment, using direct fetch");
   }
   
   try {
@@ -166,10 +173,17 @@ export async function healthGateway() {
 // Proxy function using Supabase edge function for Lovable environments
 async function xfetchProxy(url: string, { method="GET", headers={}, body, timeoutMs=12000 }: FetchOptions = {}) {
   console.log(`🔄 Using Supabase proxy for: ${url}`);
+  console.log(`🔄 Proxy method: ${method}, body:`, body);
   
   // Determine the endpoint from the URL
   const endpoint = url.includes('/health') ? 'health' : 'validate';
   const proxyUrl = `/functions/v1/gateway-proxy/${endpoint}`;
+  
+  console.log(`🔄 Proxy URL: ${proxyUrl}`);
+  console.log(`🔄 Proxy endpoint: ${endpoint}`);
+  
+  const requestBody = method === "GET" ? undefined : JSON.stringify(body || {});
+  console.log(`🔄 Proxy request body:`, requestBody);
   
   const response = await fetch(proxyUrl, {
     method: "POST",
@@ -177,15 +191,20 @@ async function xfetchProxy(url: string, { method="GET", headers={}, body, timeou
       "Content-Type": "application/json",
       ...headers
     },
-    body: method === "GET" ? undefined : JSON.stringify(body || {}),
+    body: requestBody,
   });
 
+  console.log(`🔄 Proxy response status: ${response.status}`);
+  
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`🔄 Proxy error response:`, errorText);
     throw new Error(`Proxy error: ${response.status} ${response.statusText}: ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log(`🔄 Proxy success response:`, result);
+  return result;
 }
 
 // All health checks now use the gateway
