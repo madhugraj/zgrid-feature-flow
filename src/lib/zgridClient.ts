@@ -51,6 +51,11 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   
   console.log(`🚀 xfetch: Making request to: ${url}`, { method, headers, body });
   console.log(`🌐 Current origin: ${window.location.origin}`);
+  console.log(`🔍 Browser info:`, { 
+    userAgent: navigator.userAgent,
+    isSecureContext: window.isSecureContext,
+    location: window.location.href 
+  });
   
   try {
     // Test CORS preflight for POST requests
@@ -231,6 +236,16 @@ export async function validateContent(text: string, options: {
   console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
   console.log('Gateway Request Body:', requestBody);
   console.log('Gateway Request Headers:', { "X-API-Key": GATEWAY_KEY });
+  
+  // Test health endpoint first for debugging
+  console.log('🏥 Testing health endpoint first...');
+  try {
+    const healthResult = await xfetch(`${GATEWAY_BASE}/health`);
+    console.log('✅ Health check passed:', healthResult);
+  } catch (healthError) {
+    console.error('❌ Health check failed:', healthError);
+    throw new Error(`Gateway unreachable: ${healthError.message}`);
+  }
   
   try {
     const result = await xfetch(`${GATEWAY_BASE}/validate`, {
