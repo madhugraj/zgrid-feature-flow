@@ -53,6 +53,19 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   console.log(`🌐 Current origin: ${window.location.origin}`);
   
   try {
+    // For Lovable staging environments, try a direct proxy approach first
+    if (window.location.hostname.includes('lovableproject.com')) {
+      console.log("🔄 Detected Lovable staging environment, attempting proxy approach...");
+      try {
+        // Use the Supabase edge function as a proxy
+        const proxyResult = await xfetchProxy(url, { method, headers, body, timeoutMs });
+        return proxyResult;
+      } catch (proxyError) {
+        console.warn("⚠️ Proxy approach failed, falling back to direct fetch:", proxyError);
+        // Continue with direct fetch
+      }
+    }
+
     // Test CORS preflight for POST requests
     if (method === "POST") {
       console.log("🧪 Testing CORS preflight (OPTIONS) first...");
@@ -121,7 +134,34 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
       const errorText = await r.text();
       console.error(`❌ HTTP Error ${r.status}:`, errorText);
       throw new Error(`${r.status} ${r.statusText}: ${errorText}`);
-    }
+}
+
+// Proxy function for Lovable staging environments
+async function xfetchProxy(url: string, { method="GET", headers={}, body, timeoutMs=12000 }: FetchOptions = {}) {
+  console.log(`🔄 Using Supabase proxy for: ${url}`);
+  
+  // Use the Supabase PII proxy edge function
+  const proxyUrl = '/functions/v1/pii-proxy/validate';
+  
+  const response = await fetch(proxyUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...headers
+    },
+    body: JSON.stringify({
+      text: body?.text || "",
+      entities: body?.entities || [],
+      return_spans: body?.return_spans || true
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Proxy error: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
+}
     
     const result = await r.json();
     console.log(`📝 Response data:`, result);
