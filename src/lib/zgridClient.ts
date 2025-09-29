@@ -53,23 +53,28 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   console.log(`🌐 Current origin: ${window.location.origin}`);
   
   try {
-    // First test if the endpoint is reachable with a simple test
-    if (method === "POST" && url.includes("/validate")) {
-      console.log("🧪 Testing endpoint connectivity first...");
+    // Test CORS preflight for POST requests
+    if (method === "POST") {
+      console.log("🧪 Testing CORS preflight (OPTIONS) first...");
       try {
-        const testResponse = await fetch(url.replace("/validate", "/health"), {
-          method: "GET",
-          headers: { 
-            "ngrok-skip-browser-warning": "true",
-            "X-API-Key": headers["X-API-Key"] || ""
+        const preflightResponse = await fetch(url, {
+          method: "OPTIONS",
+          headers: {
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,x-api-key",
+            "Origin": window.location.origin
           },
           mode: "cors",
           credentials: "omit",
           cache: "no-store",
         });
-        console.log(`🔍 Health check result: ${testResponse.status}`);
-      } catch (healthError) {
-        console.warn("⚠️ Health check failed:", healthError);
+        console.log(`🔍 Preflight result: ${preflightResponse.status}`, {
+          status: preflightResponse.status,
+          headers: Object.fromEntries(preflightResponse.headers.entries())
+        });
+      } catch (preflightError) {
+        console.error("❌ CORS preflight failed:", preflightError);
+        throw new Error(`CORS preflight failed: ${preflightError.message}. The server may not support OPTIONS requests or CORS is misconfigured.`);
       }
     }
 
