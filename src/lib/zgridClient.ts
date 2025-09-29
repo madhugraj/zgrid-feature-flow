@@ -2,7 +2,7 @@ type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<strin
 
 // Content Moderation Gateway - Single endpoint for all services
 let GATEWAY_BASE = "http://172.171.49.238:8008";
-let GATEWAY_KEY = "frontend-key";
+let GATEWAY_KEY = "supersecret123";
 
 // Admin API Keys for individual services (legacy support)
 let PII_ADMIN_KEY = import.meta.env.VITE_PII_ADMIN_KEY || "piiprivileged123";
