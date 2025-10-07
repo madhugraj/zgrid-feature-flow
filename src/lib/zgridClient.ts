@@ -153,28 +153,11 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
     clearTimeout(to);
     console.error(`💥 Fetch failed for ${url}:`, e);
     
-    // Check if this is running on Lovable (HTTPS) trying to access HTTP gateway
-    const isLovable = window.location.hostname.includes("lovableproject.com") || 
-                      window.location.hostname.includes("gptengineer.app") ||
-                      window.location.hostname.includes("lovable.app");
-    const isHttpGateway = url.startsWith("http://");
-    
-    // If on HTTPS (Lovable) and gateway is HTTP, try proxy instead of failing
-    if (isLovable && isHttpGateway) {
-      console.log(`🔄 HTTPS → HTTP blocked, trying proxy for ${url}`);
-      try {
-        return await xfetchProxy(url, { method, headers, body, timeoutMs });
-      } catch (proxyError) {
-        console.error(`💥 Proxy also failed:`, proxyError);
-        throw new Error(`Cannot access HTTP gateway from HTTPS page. Proxy failed: ${proxyError.message}`);
-      }
-    }
-    
     // More specific error handling
     if (e.name === 'AbortError') {
       throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
     } else if (e instanceof TypeError && e.message === 'Failed to fetch') {
-      throw new Error(`CORS or network error: Cannot connect to ${url}. This might be:\n- CORS preflight failure for POST requests\n- Mixed content (HTTPS → HTTP) blocked by browser\n- The /validate endpoint might not exist\n- Network connectivity issues\n\nTry testing the health endpoint first: ${url.replace('/validate', '/health')}`);
+      throw new Error(`Network error: Cannot connect to ${url}. This might be:\n- Mixed content (HTTPS → HTTP) blocked by browser\n- CORS preflight failure\n- Gateway service is down\n- Network connectivity issues`);
     } else {
       throw new Error(`Network error: ${e.message}`);
     }
@@ -202,26 +185,82 @@ async function xfetchProxy(url: string, { method="GET", headers={}, body, timeou
   const requestBody = method === "GET" ? undefined : JSON.stringify(body || {});
   console.log(`🔄 Proxy request body:`, requestBody);
   
-  const response = await fetch(proxyUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...headers
-    },
-    body: requestBody,
-  });
-
-  console.log(`🔄 Proxy response status: ${response.status}`);
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), timeoutMs);
   
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`🔄 Proxy error response:`, errorText);
-    throw new Error(`Proxy error: ${response.status} ${response.statusText}: ${errorText}`);
-  }
+  try {
+    const response = await fetch(proxyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...headers
+      },
+      body: requestBody,
+      signal: ctrl.signal,
+    });
 
-  const result = await response.json();
-  console.log(`🔄 Proxy success response:`, result);
-  return result;
+    clearTimeout(to);
+    console.log(`🔄 Proxy response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`🔄 Proxy error response:`, errorText);
+      
+      if (response.status === 404) {
+        throw new Error(`Gateway proxy function not deployed. Please check Supabase Functions deployment.\n\nLogs: https://supabase.com/dashboard/project/bgczwmnqxmxusfwapqcn/functions/gateway-proxy/logs`);
+      } else if (response.status === 500) {
+        throw new Error(`Gateway proxy internal error. Check logs: https://supabase.com/dashboard/project/bgczwmnqxmxusfwapqcn/functions/gateway-proxy/logs\n\nDetails: ${errorText}`);
+      }
+      
+      throw new Error(`Proxy error: ${response.status} ${response.statusText}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log(`🔄 Proxy success response:`, result);
+    return result;
+  } catch (e) {
+    clearTimeout(to);
+    
+    if (e.name === 'AbortError') {
+      throw new Error(`Proxy request timed out after ${timeoutMs}ms. Gateway may be down or slow.`);
+    }
+    
+    throw e;
+  }
+}
+
+// Check if gateway proxy is deployed and working
+export async function checkProxyDeployment(): Promise<{ deployed: boolean; error?: string }> {
+  try {
+    const proxyUrl = `https://bgczwmnqxmxusfwapqcn.supabase.co/functions/v1/gateway-proxy/health`;
+    const response = await fetch(proxyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    
+    if (response.status === 404) {
+      return { 
+        deployed: false, 
+        error: "Function not found (404). Deploy gateway-proxy to Supabase." 
+      };
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { 
+        deployed: true, 
+        error: `Proxy deployed but returned ${response.status}: ${errorText}` 
+      };
+    }
+    
+    return { deployed: true };
+  } catch (error) {
+    return { 
+      deployed: false, 
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
 
 // All health checks now use the gateway

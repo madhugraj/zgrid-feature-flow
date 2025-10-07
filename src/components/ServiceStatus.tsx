@@ -7,7 +7,8 @@ import {
   healthPolicy, 
   healthSecrets,
   healthFormat,
-  healthGibberish
+  healthGibberish,
+  checkProxyDeployment
 } from "@/lib/zgridClient";
 
 type ServiceState = "ok" | "fail" | "...";
@@ -21,8 +22,22 @@ export default function ServiceStatus() {
   const [secrets, setSecrets] = useState<ServiceState>("...");
   const [format, setFormat] = useState<ServiceState>("...");
   const [gibberish, setGibberish] = useState<ServiceState>("...");
+  const [proxy, setProxy] = useState<ServiceState>("...");
+  const [proxyError, setProxyError] = useState<string>("");
 
   useEffect(() => {
+    // Check proxy deployment first
+    checkProxyDeployment().then(result => {
+      if (result.deployed && !result.error) {
+        console.log("✅ Gateway proxy is deployed and working");
+        setProxy("ok");
+      } else {
+        console.error("❌ Gateway proxy issue:", result.error);
+        setProxy("fail");
+        setProxyError(result.error || "Unknown error");
+      }
+    });
+
     // Check all service health endpoints with detailed logging
     const checkService = async (name: string, healthFn: () => Promise<any>, setState: (state: ServiceState) => void) => {
       try {
@@ -57,15 +72,23 @@ export default function ServiceStatus() {
   );
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {pill("PII", pii)}
-      {pill("Toxicity", tox)}
-      {pill("Jailbreak", jail)}
-      {pill("Ban/Bias", ban)}
-      {pill("Policy", policy)}
-      {pill("Secrets", secrets)}
-      {pill("Format", format)}
-      {pill("Gibberish", gibberish)}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {pill("Gateway Proxy", proxy)}
+        {proxy === "fail" && proxyError && (
+          <span className="text-xs text-muted-foreground">({proxyError})</span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {pill("PII", pii)}
+        {pill("Toxicity", tox)}
+        {pill("Jailbreak", jail)}
+        {pill("Ban/Bias", ban)}
+        {pill("Policy", policy)}
+        {pill("Secrets", secrets)}
+        {pill("Format", format)}
+        {pill("Gibberish", gibberish)}
+      </div>
     </div>
   );
 }
