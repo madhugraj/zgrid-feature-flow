@@ -22,7 +22,7 @@ serve(async (req) => {
     console.log('Gateway Proxy: Endpoint requested:', endpoint)
     
     // Gateway configuration
-    const gatewayBase = 'https://gateway.20.242.183.197.nip.io'
+    const gatewayBase = 'http://172.171.49.238:8008'
     const gatewayKey = 'supersecret123'
     
     if (endpoint === 'health') {
