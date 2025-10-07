@@ -153,11 +153,28 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
     clearTimeout(to);
     console.error(`💥 Fetch failed for ${url}:`, e);
     
+    // Check if this is running on Lovable (HTTPS) trying to access HTTP gateway
+    const isLovable = window.location.hostname.includes("lovableproject.com") || 
+                      window.location.hostname.includes("gptengineer.app") ||
+                      window.location.hostname.includes("lovable.app");
+    const isHttpGateway = url.startsWith("http://");
+    
+    // If on HTTPS (Lovable) and gateway is HTTP, try proxy instead of failing
+    if (isLovable && isHttpGateway) {
+      console.log(`🔄 HTTPS → HTTP blocked, trying proxy for ${url}`);
+      try {
+        return await xfetchProxy(url, { method, headers, body, timeoutMs });
+      } catch (proxyError) {
+        console.error(`💥 Proxy also failed:`, proxyError);
+        throw new Error(`Cannot access HTTP gateway from HTTPS page. Proxy failed: ${proxyError.message}`);
+      }
+    }
+    
     // More specific error handling
     if (e.name === 'AbortError') {
       throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
     } else if (e instanceof TypeError && e.message === 'Failed to fetch') {
-      throw new Error(`CORS or network error: Cannot connect to ${url}. This might be:\n- CORS preflight failure for POST requests\n- The /validate endpoint might not exist\n- Network connectivity issues\n\nTry testing the health endpoint first: ${url.replace('/validate', '/health')}`);
+      throw new Error(`CORS or network error: Cannot connect to ${url}. This might be:\n- CORS preflight failure for POST requests\n- Mixed content (HTTPS → HTTP) blocked by browser\n- The /validate endpoint might not exist\n- Network connectivity issues\n\nTry testing the health endpoint first: ${url.replace('/validate', '/health')}`);
     } else {
       throw new Error(`Network error: ${e.message}`);
     }
@@ -177,7 +194,7 @@ async function xfetchProxy(url: string, { method="GET", headers={}, body, timeou
   
   // Determine the endpoint from the URL
   const endpoint = url.includes('/health') ? 'health' : 'validate';
-  const proxyUrl = `/functions/v1/gateway-proxy/${endpoint}`;
+  const proxyUrl = `https://bgczwmnqxmxusfwapqcn.supabase.co/functions/v1/gateway-proxy/${endpoint}`;
   
   console.log(`🔄 Proxy URL: ${proxyUrl}`);
   console.log(`🔄 Proxy endpoint: ${endpoint}`);
