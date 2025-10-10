@@ -366,7 +366,14 @@ export async function validateContent(text: string, options: {
     });
     
     console.log('Gateway Response:', result);
-    return result;
+    
+    // Gateway returns envelope with nested results map
+    // Envelope: { status, clean_text, blocked_categories, reasons, results: { policy: {...}, ban: {...}, ... } }
+    return {
+      ...result,
+      // Expose nested service results at top level for backward compatibility
+      serviceResults: result.results || {}
+    };
   } catch (error) {
     console.error('Content Validation Error:', error);
     throw error;

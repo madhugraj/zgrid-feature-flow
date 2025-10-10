@@ -4,7 +4,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { validateContent, checkProxyDeployment, getServiceConfig } from "@/lib/zgridClient";
+import { parseGatewayResponse, getServiceDisplayName, getStatusColor, formatReasons } from "@/lib/gatewayResponseParser";
 import { toast } from "@/hooks/use-toast";
 
 export default function GatewayDebugPanel() {
@@ -129,10 +132,80 @@ export default function GatewayDebugPanel() {
                     {result.success ? " ✅ Success" : " ❌ Failed"}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <pre className="text-xs overflow-auto max-h-64 bg-muted p-2 rounded">
-                    {JSON.stringify(result.success ? result.data : result.error, null, 2)}
-                  </pre>
+                <CardContent className="space-y-4">
+                  {result.success && result.data && (() => {
+                    const parsed = parseGatewayResponse(result.data);
+                    
+                    return (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">Overall Status:</span>
+                          <Badge variant={parsed.overallStatus === 'pass' ? 'default' : 'destructive'}>
+                            {parsed.overallStatus.toUpperCase()}
+                          </Badge>
+                        </div>
+                        
+                        {parsed.cleanText && (
+                          <div>
+                            <span className="font-semibold text-sm">Clean Text:</span>
+                            <p className="mt-1 p-2 bg-muted rounded text-xs">{parsed.cleanText}</p>
+                          </div>
+                        )}
+                        
+                        {parsed.blockedCategories.length > 0 && (
+                          <div>
+                            <span className="font-semibold text-sm">Blocked Categories:</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {parsed.blockedCategories.map((cat, idx) => (
+                                <Badge key={idx} variant="destructive" className="text-xs">{cat}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {Object.keys(parsed.serviceResults).length > 0 && (
+                          <div>
+                            <span className="font-semibold text-sm">Service Results:</span>
+                            <ScrollArea className="h-48 mt-2">
+                              <div className="space-y-2">
+                                {Object.entries(parsed.serviceResults).map(([service, serviceResult]) => (
+                                  <div key={service} className="p-2 border rounded text-xs">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="font-medium">{getServiceDisplayName(service)}</span>
+                                      <Badge 
+                                        variant={serviceResult.status === 'pass' ? 'default' : 'destructive'}
+                                        className="text-xs"
+                                      >
+                                        {serviceResult.status}
+                                      </Badge>
+                                    </div>
+                                    {serviceResult.reasons && serviceResult.reasons.length > 0 && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {formatReasons(serviceResult.reasons)}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </ScrollArea>
+                          </div>
+                        )}
+                        
+                        <details className="cursor-pointer">
+                          <summary className="font-semibold text-sm">Full Response (JSON)</summary>
+                          <pre className="text-xs overflow-auto max-h-48 bg-muted p-2 rounded mt-2">
+                            {JSON.stringify(result.data, null, 2)}
+                          </pre>
+                        </details>
+                      </>
+                    );
+                  })()}
+                  
+                  {!result.success && (
+                    <pre className="text-xs overflow-auto max-h-64 bg-muted p-2 rounded">
+                      {JSON.stringify(result.error, null, 2)}
+                    </pre>
+                  )}
                 </CardContent>
               </Card>
             )}
