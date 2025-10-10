@@ -3,8 +3,5 @@ project_id = "bgczwmnqxmxusfwapqcn"
 [functions.ai-config-generator]
 verify_jwt = false
 
-[functions.pii-proxy]
-verify_jwt = false
-
 [functions.gateway-proxy]
 verify_jwt = false
