@@ -33,7 +33,7 @@ serve(async (req) => {
       action_on_fail: action_on_fail 
     })
     
-    const piiServiceUrl = 'http://52.170.163.62:8000/validate'
+    const piiServiceUrl = 'http://52.149.172.22:8000/validate'
     const apiKey = Deno.env.get('PII_SERVICE_API_KEY')
     console.log('PII Proxy: Making request to PII service:', piiServiceUrl)
     console.log('PII Proxy: API Key present:', !!apiKey)
