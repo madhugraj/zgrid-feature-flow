@@ -21,6 +21,7 @@ export interface GatewayEnvelope {
 export interface ServiceResult {
   status: 'pass' | 'fixed' | 'blocked' | 'error';
   clean_text?: string;
+  redacted_text?: string;
   reasons?: string[];
   flagged_categories?: string[];
   flagged_terms?: string[];
@@ -35,6 +36,9 @@ export interface ServiceResult {
     value: string;
     offset: number;
     replacement?: string;
+    score?: number;
+    start?: number;
+    end?: number;
   }>;
   flagged_secrets?: Array<{
     id: string;

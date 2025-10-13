@@ -15,6 +15,8 @@ import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { validatePII, validateTox, validateJailbreak, validatePolicy, validateBan, validateSecrets, validateFormat, validateGibberish,
   addPIIEntities, addJailbreakRules, addPolicyRules, addBanRules, addSecretsSignatures, addFormatExpressions, addGibberishRules } from '@/lib/zgridClient';
+import { ServiceResultsDisplay } from '@/components/ServiceResultsDisplay';
+import { parseGatewayResponse, GatewayEnvelope } from '@/lib/gatewayResponseParser';
 
 const getStatusDescription = (result: any, featureName: string) => {
   const status = result.status;
@@ -50,7 +52,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
   const [tryItInput, setTryItInput] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<{ 
+  const [gatewayResponse, setGatewayResponse] = useState<GatewayEnvelope | null>(null);
+  const [simulationResult, setSimulationResult] = useState<{
     status: 'pass' | 'blocked' | 'fixed' | null;
     processedText?: string;
     entities?: Array<{ type: string; text: string; start: number; end: number; value?: string }>;
@@ -404,6 +407,9 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
           try {
             const result = await validateGibberish(tryItInput, 0.8, 10, true);
             
+            // Store gateway response for comprehensive display
+            setGatewayResponse(result as GatewayEnvelope);
+            
             // Handle both individual service response and combined gateway response
             let gibberishResult = result;
             if (result.results && result.results.gibberish) {
@@ -507,6 +513,10 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
         if (useLocalServices && apiFunction) {
           try {
             const result = await apiFunction(tryItInput);
+            
+            // Store gateway response for comprehensive display
+            setGatewayResponse(result as GatewayEnvelope);
+            
             setSimulationResult({
               status: result.status || 'pass',
               processedText: result.clean_text || result.cleaned_text,
@@ -709,8 +719,16 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                 )}
               </div>
               
-              {/* Service Results */}
-              {simulationResult.processedText !== undefined && simulationResult.status && simulationResult.status !== null && (
+              {/* Gateway Response Display */}
+              {gatewayResponse && (
+                <ServiceResultsDisplay 
+                  parsed={parseGatewayResponse(gatewayResponse)}
+                  originalText={tryItInput}
+                />
+              )}
+              
+              {/* Legacy Service Results (fallback) */}
+              {!gatewayResponse && simulationResult.processedText !== undefined && simulationResult.status && simulationResult.status !== null && (
                 <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
                   <div>
                     <label className="text-sm font-medium mb-2 block">
@@ -726,7 +744,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                     <div>
                       <label className="text-sm font-medium mb-2 block">Reasons</label>
                       <div className="flex flex-wrap gap-2">
-                        {simulationResult.reasons.map((reason, index) => (
+                        {simulationResult.reasons.map((reason: string, index: number) => (
                           <Badge key={index} variant="secondary" className="text-xs">
                             {reason}
                           </Badge>
@@ -740,7 +758,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                     <div>
                       <label className="text-sm font-medium mb-2 block">Detected Entities</label>
                       <div className="flex flex-wrap gap-2">
-                        {simulationResult.entities.map((entity, index) => (
+                        {simulationResult.entities.map((entity: any, index: number) => (
                           <Badge key={index} variant="destructive" className="text-xs">
                             {entity.type}: {entity.text || '[REDACTED]'}
                           </Badge>
@@ -754,7 +772,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                     <div>
                       <label className="text-sm font-medium mb-2 block">Flagged Content</label>
                       <div className="space-y-2">
-                        {simulationResult.flagged.map((item, index) => (
+                        {simulationResult.flagged.map((item: any, index: number) => (
                           <div key={index} className="bg-destructive/10 p-2 rounded border border-destructive/20">
                             <div className="flex justify-between items-center">
                               <Badge variant="destructive" className="text-xs">
@@ -778,7 +796,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                         {Object.entries(simulationResult.scores).map(([key, score]) => (
                           <div key={key} className="flex justify-between text-xs">
                             <span className="capitalize">{key.replace('_', ' ')}</span>
-                            <span className="font-mono">{(score * 100).toFixed(1)}%</span>
+                            <span className="font-mono">{((score as number) * 100).toFixed(1)}%</span>
                           </div>
                         ))}
                       </div>
@@ -800,7 +818,7 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                 </div>
               )}
               
-              {simulationResult.error && (
+              {simulationResult && simulationResult.error && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
                   {simulationResult.error}
                 </div>
