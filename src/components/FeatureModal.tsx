@@ -251,7 +251,8 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             );
             
             // Process PII service response - extract from correct location
-            console.log('PII Service Response:', result);
+            console.log('=== PII RESPONSE DEBUG ===');
+            console.log('Full Response:', JSON.stringify(result, null, 2));
             
             // Check if this is a gateway response (has results.pii) or direct service response
             let entities = [];
@@ -259,24 +260,24 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
             
             if (result.results && result.results.pii) {
               // Gateway response structure
-              console.log('Gateway PII entities:', result.results.pii.entities);
+              console.log('Gateway PII path - results.pii.entities:', result.results.pii.entities);
               entities = result.results.pii.entities || [];
               redactedText = result.results.pii.redacted_text || result.clean_text || tryItInput;
             } else {
               // Direct PII service response structure
+              console.log('Direct PII path - result.entities:', result.entities);
               entities = result.entities || [];
               redactedText = result.redacted_text || result.clean_text || tryItInput;
             }
             
             const status = result.status || (entities.length > 0 ? 'fixed' : 'pass');
             
-            console.log('Processed PII Data:', {
-              status,
-              redactedText,
-              entityCount: entities.length,
-              entityTypes: entities.map((e: any) => e.entity_type || e.type),
-              fullEntities: entities
-            });
+            console.log('=== EXTRACTED DATA ===');
+            console.log('Entity Count:', entities.length);
+            console.log('Entity Types:', entities.map((e: any) => e.type || e.entity_type));
+            console.log('Full Entities Array:', JSON.stringify(entities, null, 2));
+            console.log('Redacted Text:', redactedText);
+            console.log('======================');
             
             setSimulationResult({
               status,
