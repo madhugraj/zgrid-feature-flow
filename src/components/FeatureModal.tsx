@@ -250,26 +250,39 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
               true
             );
             
-            // Process PII service response - use redacted_text for display
+            // Process PII service response - extract from correct location
             console.log('PII Service Response:', result);
             
-            // Handle direct PII service response format
-            const entities = result.entities || [];
+            // Check if this is a gateway response (has results.pii) or direct service response
+            let entities = [];
+            let redactedText = tryItInput;
+            
+            if (result.results && result.results.pii) {
+              // Gateway response structure
+              console.log('Gateway PII entities:', result.results.pii.entities);
+              entities = result.results.pii.entities || [];
+              redactedText = result.results.pii.redacted_text || result.clean_text || tryItInput;
+            } else {
+              // Direct PII service response structure
+              entities = result.entities || [];
+              redactedText = result.redacted_text || result.clean_text || tryItInput;
+            }
+            
             const status = result.status || (entities.length > 0 ? 'fixed' : 'pass');
-            const cleanedText = result.redacted_text || result.clean_text || tryItInput;
             
             console.log('Processed PII Data:', {
               status,
-              cleanedText,
-              entities: entities.length,
-              originalResponse: result
+              redactedText,
+              entityCount: entities.length,
+              entityTypes: entities.map((e: any) => e.entity_type || e.type),
+              fullEntities: entities
             });
             
             setSimulationResult({
               status,
-              processedText: cleanedText,
+              processedText: redactedText,
               entities: entities,
-              reasons: result.reasons || [`Processed ${entities.length} entities`],
+              reasons: result.reasons || [`Detected ${entities.length} PII entities`],
               serviceType: 'pii'
             });
             
@@ -756,11 +769,13 @@ export function FeatureModal({ feature, isOpen, onClose }: FeatureModalProps) {
                   {/* PII Entities */}
                   {simulationResult.entities && simulationResult.entities.length > 0 && (
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Detected Entities</label>
+                      <label className="text-sm font-medium mb-2 block">Detected PII Entities ({simulationResult.entities.length})</label>
                       <div className="flex flex-wrap gap-2">
                         {simulationResult.entities.map((entity: any, index: number) => (
-                          <Badge key={index} variant="destructive" className="text-xs">
-                            {entity.type}: {entity.text || '[REDACTED]'}
+                          <Badge key={index} variant="destructive" className="text-xs flex items-center gap-1">
+                            <Shield className="h-3 w-3" />
+                            {entity.entity_type || entity.type}
+                            {entity.score && ` (${(entity.score * 100).toFixed(0)}%)`}
                           </Badge>
                         ))}
                       </div>
