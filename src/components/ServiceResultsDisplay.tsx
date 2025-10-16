@@ -67,7 +67,7 @@ export function ServiceResultsDisplay({ parsed, originalText }: ServiceResultsDi
       <div>
         <label className="text-sm font-medium mb-2 block">Redacted Text</label>
         <div className="bg-background p-3 rounded border font-mono text-sm">
-          {result.clean_text || result.redacted_text || 'No redaction needed'}
+          {result.redacted_text || result.clean_text || 'No redaction needed'}
         </div>
       </div>
       
