@@ -27,6 +27,17 @@ All **8 backend services** are now integrated and ready to use!
 
 ## 🚀 Quick Start Guide
 
+### ⚠️ Important: CORS & Proxy Setup
+
+To fix CORS issues during local development, we've configured a **Vite Proxy**.
+This means requests to `/proxy/service-name` are automatically forwarded to the backend services.
+
+**You MUST restart your dev server** for these changes to take effect:
+1. Stop the current server (Ctrl+C)
+2. Run `npm run dev` again
+
+---
+
 ### Step 1: Start Toxicity Service Port Forwarding
 
 In a **new terminal** (keep it running):

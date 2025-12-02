@@ -1,16 +1,18 @@
 type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string, string>; body?: any; timeoutMs?: number };
 
 // =================== SERVICE ENDPOINTS CONFIGURATION ===================
-// Individual service endpoints - Direct access to backend services
+// Individual service endpoints - Uses local proxy in development to bypass CORS
+const IS_DEV = import.meta.env.DEV;
+
 const SERVICE_ENDPOINTS = {
-  PII: "http://57.152.84.241:8000",           // PII Detection
-  TOXICITY: "http://localhost:8001",          // Toxicity Detection (ClusterIP only - requires port forwarding)
-  JAILBREAK_ROBERTA: "http://172.210.123.118:5005",  // Jailbreak Detection (RoBERTa)
-  JAILBREAK_DISTILBERT: "http://4.156.246.0:8002",   // Jailbreak Detection (DistilBERT)
-  BAN: "http://48.194.33.158:8004",           // Ban/Content Service
-  SECRETS: "http://4.156.154.216:8005",       // Secrets Detection
-  FORMAT: "http://20.242.132.57:8006",        // Format Validation
-  GIBBERISH: "http://51.8.74.156:8007",       // Gibberish Detection
+  PII: IS_DEV ? "/proxy/pii" : "http://57.152.84.241:8000",
+  TOXICITY: IS_DEV ? "/proxy/toxicity" : "http://localhost:8001",
+  JAILBREAK_ROBERTA: IS_DEV ? "/proxy/jailbreak-roberta" : "http://172.210.123.118:5005",
+  JAILBREAK_DISTILBERT: IS_DEV ? "/proxy/jailbreak-distilbert" : "http://4.156.246.0:8002",
+  BAN: IS_DEV ? "/proxy/ban" : "http://48.194.33.158:8004",
+  SECRETS: IS_DEV ? "/proxy/secrets" : "http://4.156.154.216:8005",
+  FORMAT: IS_DEV ? "/proxy/format" : "http://20.242.132.57:8006",
+  GIBBERISH: IS_DEV ? "/proxy/gibberish" : "http://51.8.74.156:8007",
 };
 
 // Content Moderation Gateway - Single endpoint for all services (if available)
