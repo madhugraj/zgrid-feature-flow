@@ -1,10 +1,26 @@
-type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string,string>; body?: any; timeoutMs?: number };
+type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<string, string>; body?: any; timeoutMs?: number };
 
-// Content Moderation Gateway - Single endpoint for all services
+// =================== SERVICE ENDPOINTS CONFIGURATION ===================
+// Individual service endpoints - Direct access to backend services
+const SERVICE_ENDPOINTS = {
+  PII: "http://57.152.84.241:8000",           // PII Detection
+  TOXICITY: "http://localhost:8001",          // Toxicity Detection (ClusterIP only - requires port forwarding)
+  JAILBREAK_ROBERTA: "http://172.210.123.118:5005",  // Jailbreak Detection (RoBERTa)
+  JAILBREAK_DISTILBERT: "http://4.156.246.0:8002",   // Jailbreak Detection (DistilBERT)
+  BAN: "http://48.194.33.158:8004",           // Ban/Content Service
+  SECRETS: "http://4.156.154.216:8005",       // Secrets Detection
+  FORMAT: "http://20.242.132.57:8006",        // Format Validation
+  GIBBERISH: "http://51.8.74.156:8007",       // Gibberish Detection
+};
+
+// Content Moderation Gateway - Single endpoint for all services (if available)
 let GATEWAY_BASE = "http://172.171.49.238:8008";
 let GATEWAY_KEY = "supersecret123";
 
-// Admin API Keys for individual services (legacy support)
+// API Keys for all services
+const API_KEY = "supersecret123";
+
+// Admin API Keys for individual services (for configuration management)
 let PII_ADMIN_KEY = import.meta.env.VITE_PII_ADMIN_KEY || "piiprivileged123";
 let JAIL_ADMIN_KEY = import.meta.env.VITE_JAIL_ADMIN_KEY || "jailprivileged123";
 let BAN_ADMIN_KEY = import.meta.env.VITE_BAN_ADMIN_KEY || "banprivileged123";
@@ -37,7 +53,7 @@ export function setServiceConfig(config: {
 }
 
 export function getServiceConfig() {
-  return { 
+  return {
     GATEWAY_BASE, GATEWAY_KEY,
     PII_ADMIN_KEY, JAIL_ADMIN_KEY, BAN_ADMIN_KEY,
     POLICY_ADMIN_KEY, SECRETS_ADMIN_KEY, FORMAT_ADMIN_KEY, GIBBERISH_ADMIN_KEY
@@ -45,24 +61,24 @@ export function getServiceConfig() {
 }
 
 // Single fetch with timeout + helpful errors
-async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=12000 }: FetchOptions = {}) {
+async function xfetch(url: string, { method = "GET", headers = {}, body, timeoutMs = 12000 }: FetchOptions = {}) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
-  
+
   console.log(`🚀 xfetch: Making request to: ${url}`, { method, headers, body });
   console.log(`🌐 Current origin: ${window.location.origin}`);
-  console.log(`🔍 Browser info:`, { 
+  console.log(`🔍 Browser info:`, {
     userAgent: navigator.userAgent,
     isSecureContext: window.isSecureContext,
-    location: window.location.href 
+    location: window.location.href
   });
-  
+
   // For Lovable environments, try Supabase proxy first to bypass browser restrictions
   const hostname = window.location.hostname;
   console.log(`🔍 Hostname check: ${hostname}`);
   console.log(`🔍 Contains lovableproject.com: ${hostname.includes('lovableproject.com')}`);
   console.log(`🔍 Contains lovable.app: ${hostname.includes('lovable.app')}`);
-  
+
   if (hostname.includes('lovableproject.com') || hostname.includes('lovable.app')) {
     console.log("🔄 Detected Lovable environment, trying Supabase proxy first...");
     try {
@@ -74,7 +90,7 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
   } else {
     console.log("🏠 Not a Lovable environment, using direct fetch");
   }
-  
+
   try {
     // Test CORS preflight for POST requests
     if (method === "POST") {
@@ -104,14 +120,14 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
     // Add cache-busting timestamp to force fresh request
     const cacheBuster = `?t=${Date.now()}&r=${Math.random()}`;
     const finalUrl = url.includes('?') ? `${url}&${cacheBuster.slice(1)}` : `${url}${cacheBuster}`;
-    
+
     console.log(`🔄 Making actual POST request to: ${finalUrl}`);
     console.log(`📋 Request details:`, {
       method,
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true",
-        ...headers 
+        ...headers
       },
       body: body ? JSON.stringify(body) : undefined,
       mode: "cors",
@@ -121,10 +137,10 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
 
     const r = await fetch(finalUrl, {
       method,
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true",
-        ...headers 
+        ...headers
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,
@@ -132,27 +148,27 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
       credentials: "omit",
       cache: "no-store",
     });
-    
+
     clearTimeout(to);
     console.log(`✅ Response status: ${r.status} for ${url}`, {
       status: r.status,
       statusText: r.statusText,
       headers: Object.fromEntries(r.headers.entries())
     });
-    
+
     if (!r.ok) {
       const errorText = await r.text();
       console.error(`❌ HTTP Error ${r.status}:`, errorText);
       throw new Error(`${r.status} ${r.statusText}: ${errorText}`);
     }
-    
+
     const result = await r.json();
     console.log(`📝 Response data:`, result);
     return result;
   } catch (e) {
     clearTimeout(to);
     console.error(`💥 Fetch failed for ${url}:`, e);
-    
+
     // More specific error handling
     if (e.name === 'AbortError') {
       throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
@@ -165,29 +181,29 @@ async function xfetch(url: string, { method="GET", headers={}, body, timeoutMs=1
 }
 
 // Health check for the gateway
-export async function healthGateway() { 
+export async function healthGateway() {
   if (GATEWAY_BASE === "mock") return { status: "ok", service: "gateway-mock" };
-  return xfetch(`${GATEWAY_BASE}/health`); 
+  return xfetch(`${GATEWAY_BASE}/health`);
 }
 
 // Proxy function using Supabase edge function for Lovable environments
-async function xfetchProxy(url: string, { method="GET", headers={}, body, timeoutMs=12000 }: FetchOptions = {}) {
+async function xfetchProxy(url: string, { method = "GET", headers = {}, body, timeoutMs = 12000 }: FetchOptions = {}) {
   console.log(`🔄 Using Supabase proxy for: ${url}`);
   console.log(`🔄 Proxy method: ${method}, body:`, body);
-  
+
   // Determine the endpoint from the URL
   const endpoint = url.includes('/health') ? 'health' : 'validate';
   const proxyUrl = `https://bgczwmnqxmxusfwapqcn.supabase.co/functions/v1/gateway-proxy/${endpoint}`;
-  
+
   console.log(`🔄 Proxy URL: ${proxyUrl}`);
   console.log(`🔄 Proxy endpoint: ${endpoint}`);
-  
+
   const requestBody = method === "GET" ? undefined : JSON.stringify(body || {});
   console.log(`🔄 Proxy request body:`, requestBody);
-  
+
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
-  
+
   try {
     const response = await fetch(proxyUrl, {
       method: "POST",
@@ -201,17 +217,17 @@ async function xfetchProxy(url: string, { method="GET", headers={}, body, timeou
 
     clearTimeout(to);
     console.log(`🔄 Proxy response status: ${response.status}`);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`🔄 Proxy error response:`, errorText);
-      
+
       if (response.status === 404) {
         throw new Error(`Gateway proxy function not deployed. Please check Supabase Functions deployment.\n\nLogs: https://supabase.com/dashboard/project/bgczwmnqxmxusfwapqcn/functions/gateway-proxy/logs`);
       } else if (response.status === 500) {
         throw new Error(`Gateway proxy internal error. Check logs: https://supabase.com/dashboard/project/bgczwmnqxmxusfwapqcn/functions/gateway-proxy/logs\n\nDetails: ${errorText}`);
       }
-      
+
       throw new Error(`Proxy error: ${response.status} ${response.statusText}: ${errorText}`);
     }
 
@@ -220,11 +236,11 @@ async function xfetchProxy(url: string, { method="GET", headers={}, body, timeou
     return result;
   } catch (e) {
     clearTimeout(to);
-    
+
     if (e.name === 'AbortError') {
       throw new Error(`Proxy request timed out after ${timeoutMs}ms. Gateway may be down or slow.`);
     }
-    
+
     throw e;
   }
 }
@@ -238,61 +254,61 @@ export async function checkProxyDeployment(): Promise<{ deployed: boolean; error
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
-    
+
     if (response.status === 404) {
-      return { 
-        deployed: false, 
-        error: "Function not found (404). Deploy gateway-proxy to Supabase." 
+      return {
+        deployed: false,
+        error: "Function not found (404). Deploy gateway-proxy to Supabase."
       };
     }
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      return { 
-        deployed: true, 
-        error: `Proxy deployed but returned ${response.status}: ${errorText}` 
+      return {
+        deployed: true,
+        error: `Proxy deployed but returned ${response.status}: ${errorText}`
       };
     }
-    
+
     return { deployed: true };
   } catch (error) {
-    return { 
-      deployed: false, 
+    return {
+      deployed: false,
       error: error instanceof Error ? error.message : String(error)
     };
   }
 }
 
 // All health checks now use the gateway
-export async function healthPII() { 
+export async function healthPII() {
   return healthGateway();
 }
 
-export async function healthTox() { 
+export async function healthTox() {
   return healthGateway();
 }
 
-export async function healthJail() { 
+export async function healthJail() {
   return healthGateway();
 }
 
-export async function healthBan() { 
+export async function healthBan() {
   return healthGateway();
 }
 
-export async function healthPolicy() { 
+export async function healthPolicy() {
   return healthGateway();
 }
 
-export async function healthSecrets() { 
+export async function healthSecrets() {
   return healthGateway();
 }
 
-export async function healthFormat() { 
+export async function healthFormat() {
   return healthGateway();
 }
 
-export async function healthGibberish() { 
+export async function healthGibberish() {
   return healthGateway();
 }
 
@@ -315,11 +331,11 @@ export async function validateContent(text: string, options: {
   gibberish_min_length?: number;
 } = {}) {
   console.log('validateContent called with:', { text, options, GATEWAY_BASE });
-  
+
   if (GATEWAY_BASE === "mock") {
     // Mock unified validation
     const hasIssues = text.toLowerCase().includes("test") || text.toLowerCase().includes("example");
-    
+
     return {
       status: hasIssues ? "blocked" : "pass",
       clean_text: hasIssues ? "" : text,
@@ -329,8 +345,8 @@ export async function validateContent(text: string, options: {
       steps: [{ name: "unified_check", passed: !hasIssues, details: { gateway: "mock" } }]
     };
   }
-  
-  const requestBody = { 
+
+  const requestBody = {
     text,
     check_bias: options.check_bias !== undefined ? options.check_bias : true,
     check_toxicity: options.check_toxicity !== undefined ? options.check_toxicity : true,
@@ -343,11 +359,11 @@ export async function validateContent(text: string, options: {
     return_spans: options.return_spans !== undefined ? options.return_spans : true,
     ...(options.entities && { entities: options.entities })
   };
-  
+
   console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
   console.log('Gateway Request Body:', requestBody);
   console.log('Gateway Request Headers:', { "X-API-Key": GATEWAY_KEY });
-  
+
   // Test health endpoint first for debugging
   console.log('🏥 Testing health endpoint first...');
   try {
@@ -357,16 +373,16 @@ export async function validateContent(text: string, options: {
     console.error('❌ Health check failed:', healthError);
     throw new Error(`Gateway unreachable: ${healthError.message}`);
   }
-  
+
   try {
     const result = await xfetch(`${GATEWAY_BASE}/validate`, {
       method: "POST",
       headers: { "X-API-Key": GATEWAY_KEY },
       body: requestBody,
     });
-    
+
     console.log('Gateway Response:', result);
-    
+
     // Gateway returns envelope with nested results map
     // Envelope: { status, clean_text, blocked_categories, reasons, results: { policy: {...}, ban: {...}, ... } }
     return {
@@ -380,77 +396,105 @@ export async function validateContent(text: string, options: {
   }
 }
 
-// =================== LEGACY API FUNCTIONS ===================
-// These functions maintain compatibility with existing code
+// =================== DIRECT SERVICE API FUNCTIONS ===================
+// These functions call individual backend services directly
 
 export async function validatePII(text: string, entities?: string[], return_spans?: boolean) {
   console.log('validatePII called with:', { text, entities, return_spans });
-  
-  return validateContent(text, {
-    check_pii: true,
-    check_bias: false,
-    check_toxicity: false,
-    check_secrets: false,
-    check_jailbreak: false,
-    check_format: false,
-    check_gibberish: false,
-    entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "US_SSN", "PERSON", "LOCATION", "IN_AADHAAR", "IN_PAN"],
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "mask"
-  });
+  console.log('Using PII service at:', SERVICE_ENDPOINTS.PII);
+
+  try {
+    const result = await xfetch(`${SERVICE_ENDPOINTS.PII}/detect`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: {
+        text,
+        entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "US_SSN", "PERSON", "LOCATION", "IN_AADHAAR", "IN_PAN"],
+        return_spans: return_spans !== undefined ? return_spans : true
+      }
+    });
+
+    console.log('PII Service Response:', result);
+    return result;
+  } catch (error) {
+    console.error('PII Service Error:', error);
+    throw error;
+  }
 }
 
 export async function validateTox(text: string, return_spans?: boolean) {
   console.log('validateTox called with:', { text, return_spans });
-  
-  return validateContent(text, {
-    check_toxicity: true,
-    check_bias: false,
-    check_pii: false,
-    check_secrets: false,
-    check_jailbreak: false,
-    check_format: false,
-    check_gibberish: false,
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "filter"
-  });
+  console.log('Using Toxicity service at:', SERVICE_ENDPOINTS.TOXICITY);
+
+  try {
+    const result = await xfetch(`${SERVICE_ENDPOINTS.TOXICITY}/detect`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: {
+        text,
+        return_spans: return_spans !== undefined ? return_spans : true
+      }
+    });
+
+    console.log('Toxicity Service Response:', result);
+    return result;
+  } catch (error) {
+    console.error('Toxicity Service Error:', error);
+    throw error;
+  }
 }
 
-export async function validateJailbreak(text: string, return_spans?: boolean) {
-  console.log('validateJailbreak called with:', { text, return_spans });
-  
-  return validateContent(text, {
-    check_jailbreak: true,
-    check_bias: false,
-    check_toxicity: false,
-    check_pii: false,
-    check_secrets: false,
-    check_format: false,
-    check_gibberish: false,
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "refrain"
-  });
+export async function validateJailbreak(text: string, return_spans?: boolean, useDistilBERT: boolean = false) {
+  console.log('validateJailbreak called with:', { text, return_spans, useDistilBERT });
+
+  // Choose between RoBERTa (default) or DistilBERT model
+  const endpoint = useDistilBERT ? SERVICE_ENDPOINTS.JAILBREAK_DISTILBERT : SERVICE_ENDPOINTS.JAILBREAK_ROBERTA;
+  console.log('Using Jailbreak service at:', endpoint);
+
+  try {
+    const result = await xfetch(`${endpoint}/detect`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: {
+        text,
+        return_spans: return_spans !== undefined ? return_spans : true
+      }
+    });
+
+    console.log('Jailbreak Service Response:', result);
+    return result;
+  } catch (error) {
+    console.error('Jailbreak Service Error:', error);
+    throw error;
+  }
 }
 
 export async function validateBan(text: string, return_spans?: boolean) {
   console.log('validateBan called with:', { text, return_spans });
-  
-  return validateContent(text, {
-    check_bias: true,
-    check_toxicity: false,
-    check_pii: false,
-    check_secrets: false,
-    check_jailbreak: false,
-    check_format: false,
-    check_gibberish: false,
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "refrain"
-  });
+  console.log('Using Ban/Content service at:', SERVICE_ENDPOINTS.BAN);
+
+  try {
+    const result = await xfetch(`${SERVICE_ENDPOINTS.BAN}/check`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: {
+        text,
+        return_spans: return_spans !== undefined ? return_spans : true
+      }
+    });
+
+    console.log('Ban Service Response:', result);
+    return result;
+  } catch (error) {
+    console.error('Ban Service Error:', error);
+    throw error;
+  }
 }
 
 export async function validatePolicy(text: string, return_spans?: boolean) {
   console.log('validatePolicy called with:', { text, return_spans });
-  
+
+  // Policy service uses the gateway for now (LlamaGuard model)
   return validateContent(text, {
     check_bias: true,
     check_toxicity: false,
@@ -466,50 +510,71 @@ export async function validatePolicy(text: string, return_spans?: boolean) {
 
 export async function validateSecrets(text: string, return_spans?: boolean) {
   console.log('validateSecrets called with:', { text, return_spans });
-  
-  return validateContent(text, {
-    check_secrets: true,
-    check_bias: false,
-    check_toxicity: false,
-    check_pii: false,
-    check_jailbreak: false,
-    check_format: false,
-    check_gibberish: false,
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "mask"
-  });
+  console.log('Using Secrets service at:', SERVICE_ENDPOINTS.SECRETS);
+
+  try {
+    const result = await xfetch(`${SERVICE_ENDPOINTS.SECRETS}/detect`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: {
+        text,
+        return_spans: return_spans !== undefined ? return_spans : true
+      }
+    });
+
+    console.log('Secrets Service Response:', result);
+    return result;
+  } catch (error) {
+    console.error('Secrets Service Error:', error);
+    throw error;
+  }
 }
 
 export async function validateFormat(text: string, expressions?: string[], return_spans?: boolean) {
   console.log('validateFormat called with:', { text, expressions, return_spans });
-  
-  return validateContent(text, {
-    check_format: true,
-    check_bias: false,
-    check_toxicity: false,
-    check_pii: false,
-    check_secrets: false,
-    check_jailbreak: false,
-    check_gibberish: false,
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "refrain"
-  });
+  console.log('Using Format service at:', SERVICE_ENDPOINTS.FORMAT);
+
+  try {
+    const result = await xfetch(`${SERVICE_ENDPOINTS.FORMAT}/validate`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: {
+        text,
+        expressions: expressions || [],
+        return_spans: return_spans !== undefined ? return_spans : true
+      }
+    });
+
+    console.log('Format Service Response:', result);
+    return result;
+  } catch (error) {
+    console.error('Format Service Error:', error);
+    throw error;
+  }
 }
 
 export async function validateGibberish(text: string, threshold?: number, min_length?: number, return_spans?: boolean) {
   console.log('validateGibberish called with:', { text, threshold, min_length, return_spans });
-  
-  return validateContent(text, {
-    check_gibberish: true,
-    check_bias: false,
-    check_toxicity: false,
-    check_pii: false,
-    check_secrets: false,
-    check_jailbreak: false,
-    check_format: false,
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "refrain"
-  });
+  console.log('Using Gibberish service at:', SERVICE_ENDPOINTS.GIBBERISH);
+
+  try {
+    const result = await xfetch(`${SERVICE_ENDPOINTS.GIBBERISH}/detect`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: {
+        text,
+        threshold: threshold || 0.8,
+        min_length: min_length || 10,
+        return_spans: return_spans !== undefined ? return_spans : true
+      }
+    });
+
+    console.log('Gibberish Service Response:', result);
+    return result;
+  } catch (error) {
+    console.error('Gibberish Service Error:', error);
+    throw error;
+  }
 }
 
 // =================== ADMIN API FUNCTIONS ===================
@@ -532,11 +597,11 @@ export async function addPIIEntities(config: {
 }) {
   // Admin operations still use individual service endpoints
   const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
-  
+
   if (PII_BASE === "mock") {
     return { status: "success", message: "Custom PII entities added (mock)" };
   }
-  
+
   return xfetch(`${PII_BASE}/admin/entities`, {
     method: "POST",
     headers: { "x-api-key": PII_ADMIN_KEY },
@@ -546,11 +611,11 @@ export async function addPIIEntities(config: {
 
 export async function getPIIEntities() {
   const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
-  
+
   if (PII_BASE === "mock") {
     return { entities: [], placeholders: [], thresholds: [] };
   }
-  
+
   return xfetch(`${PII_BASE}/admin/entities`, {
     headers: { "x-api-key": PII_ADMIN_KEY },
   });
@@ -558,11 +623,11 @@ export async function getPIIEntities() {
 
 export async function clearPIIEntities() {
   const PII_BASE = import.meta.env.VITE_PII_ENDPOINT || "http://52.170.163.62:8000";
-  
+
   if (PII_BASE === "mock") {
     return { status: "success", message: "PII entities cleared (mock)" };
   }
-  
+
   return xfetch(`${PII_BASE}/admin/entities`, {
     method: "DELETE",
     headers: { "x-api-key": PII_ADMIN_KEY },
@@ -582,11 +647,11 @@ export async function addJailbreakRules(config: {
   };
 }) {
   const JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
-  
+
   if (JAIL_BASE === "mock") {
     return { status: "success", message: "Custom jailbreak rules added (mock)" };
   }
-  
+
   return xfetch(`${JAIL_BASE}/admin/rules`, {
     method: "POST",
     headers: { "x-api-key": JAIL_ADMIN_KEY },
@@ -596,11 +661,11 @@ export async function addJailbreakRules(config: {
 
 export async function getJailbreakRules() {
   const JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
-  
+
   if (JAIL_BASE === "mock") {
     return { patterns: [], thresholds: {} };
   }
-  
+
   return xfetch(`${JAIL_BASE}/admin/rules`, {
     headers: { "x-api-key": JAIL_ADMIN_KEY },
   });
@@ -608,11 +673,11 @@ export async function getJailbreakRules() {
 
 export async function clearJailbreakRules() {
   const JAIL_BASE = import.meta.env.VITE_JAIL_ENDPOINT || "http://localhost:8002";
-  
+
   if (JAIL_BASE === "mock") {
     return { status: "success", message: "Jailbreak rules cleared (mock)" };
   }
-  
+
   return xfetch(`${JAIL_BASE}/admin/rules`, {
     method: "DELETE",
     headers: { "x-api-key": JAIL_ADMIN_KEY },
@@ -633,11 +698,11 @@ export async function addPolicyRules(config: {
   }>;
 }) {
   const POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "http://localhost:8003";
-  
+
   if (POLICY_BASE === "mock") {
     return { status: "success", message: "Custom policy rules added (mock)" };
   }
-  
+
   return xfetch(`${POLICY_BASE}/admin/policies`, {
     method: "POST",
     headers: { "x-api-key": POLICY_ADMIN_KEY },
@@ -647,11 +712,11 @@ export async function addPolicyRules(config: {
 
 export async function getPolicyRules() {
   const POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "http://localhost:8003";
-  
+
   if (POLICY_BASE === "mock") {
     return { policies: [], categories: [] };
   }
-  
+
   return xfetch(`${POLICY_BASE}/admin/policies`, {
     headers: { "x-api-key": POLICY_ADMIN_KEY },
   });
@@ -659,11 +724,11 @@ export async function getPolicyRules() {
 
 export async function clearPolicyRules() {
   const POLICY_BASE = import.meta.env.VITE_POLICY_ENDPOINT || "http://localhost:8003";
-  
+
   if (POLICY_BASE === "mock") {
     return { status: "success", message: "Policy rules cleared (mock)" };
   }
-  
+
   return xfetch(`${POLICY_BASE}/admin/policies`, {
     method: "DELETE",
     headers: { "x-api-key": POLICY_ADMIN_KEY },
@@ -684,11 +749,11 @@ export async function addBanRules(config: {
   }>;
 }) {
   const BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "http://localhost:8004";
-  
+
   if (BAN_BASE === "mock") {
     return { status: "success", message: "Custom ban rules added (mock)" };
   }
-  
+
   return xfetch(`${BAN_BASE}/admin/banlist`, {
     method: "POST",
     headers: { "x-api-key": BAN_ADMIN_KEY },
@@ -698,11 +763,11 @@ export async function addBanRules(config: {
 
 export async function getBanRules() {
   const BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "http://localhost:8004";
-  
+
   if (BAN_BASE === "mock") {
     return { terms: [], lists: [] };
   }
-  
+
   return xfetch(`${BAN_BASE}/admin/banlist`, {
     headers: { "x-api-key": BAN_ADMIN_KEY },
   });
@@ -710,11 +775,11 @@ export async function getBanRules() {
 
 export async function clearBanRules() {
   const BAN_BASE = import.meta.env.VITE_BAN_ENDPOINT || "http://localhost:8004";
-  
+
   if (BAN_BASE === "mock") {
     return { status: "success", message: "Ban rules cleared (mock)" };
   }
-  
+
   return xfetch(`${BAN_BASE}/admin/banlist`, {
     method: "DELETE",
     headers: { "x-api-key": BAN_ADMIN_KEY },
@@ -735,11 +800,11 @@ export async function addSecretsSignatures(config: {
   };
 }) {
   const SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "http://localhost:8005";
-  
+
   if (SECRETS_BASE === "mock") {
     return { status: "success", message: "Custom secrets signatures added (mock)" };
   }
-  
+
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
     method: "POST",
     headers: { "x-api-key": SECRETS_ADMIN_KEY },
@@ -749,11 +814,11 @@ export async function addSecretsSignatures(config: {
 
 export async function getSecretsSignatures() {
   const SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "http://localhost:8005";
-  
+
   if (SECRETS_BASE === "mock") {
     return { signatures: [], entropy_rules: {} };
   }
-  
+
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
     headers: { "x-api-key": SECRETS_ADMIN_KEY },
   });
@@ -761,11 +826,11 @@ export async function getSecretsSignatures() {
 
 export async function clearSecretsSignatures() {
   const SECRETS_BASE = import.meta.env.VITE_SECRETS_ENDPOINT || "http://localhost:8005";
-  
+
   if (SECRETS_BASE === "mock") {
     return { status: "success", message: "Secrets signatures cleared (mock)" };
   }
-  
+
   return xfetch(`${SECRETS_BASE}/admin/signatures`, {
     method: "DELETE",
     headers: { "x-api-key": SECRETS_ADMIN_KEY },
@@ -786,11 +851,11 @@ export async function addFormatExpressions(config: {
   }>;
 }) {
   const FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "http://localhost:8006";
-  
+
   if (FORMAT_BASE === "mock") {
     return { status: "success", message: "Custom format expressions added (mock)" };
   }
-  
+
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     method: "POST",
     headers: { "x-api-key": FORMAT_ADMIN_KEY },
@@ -800,11 +865,11 @@ export async function addFormatExpressions(config: {
 
 export async function getFormatExpressions() {
   const FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "http://localhost:8006";
-  
+
   if (FORMAT_BASE === "mock") {
     return { expressions: [], variables: [] };
   }
-  
+
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     headers: { "x-api-key": FORMAT_ADMIN_KEY },
   });
@@ -812,11 +877,11 @@ export async function getFormatExpressions() {
 
 export async function clearFormatExpressions() {
   const FORMAT_BASE = import.meta.env.VITE_FORMAT_ENDPOINT || "http://localhost:8006";
-  
+
   if (FORMAT_BASE === "mock") {
     return { status: "success", message: "Format expressions cleared (mock)" };
   }
-  
+
   return xfetch(`${FORMAT_BASE}/admin/expressions`, {
     method: "DELETE",
     headers: { "x-api-key": FORMAT_ADMIN_KEY },
@@ -834,11 +899,11 @@ export async function addGibberishRules(config: {
   }>;
 }) {
   const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
-  
+
   if (GIBBERISH_BASE === "mock") {
     return { status: "success", message: "Custom gibberish rules added (mock)" };
   }
-  
+
   return xfetch(`${GIBBERISH_BASE}/admin/rules`, {
     method: "POST",
     headers: { "x-api-key": GIBBERISH_ADMIN_KEY },
@@ -848,11 +913,11 @@ export async function addGibberishRules(config: {
 
 export async function getGibberishRules() {
   const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
-  
+
   if (GIBBERISH_BASE === "mock") {
     return { threshold: 0.8, min_length: 10, patterns: [] };
   }
-  
+
   return xfetch(`${GIBBERISH_BASE}/admin/rules`, {
     headers: { "x-api-key": GIBBERISH_ADMIN_KEY },
   });
@@ -860,11 +925,11 @@ export async function getGibberishRules() {
 
 export async function clearGibberishRules() {
   const GIBBERISH_BASE = import.meta.env.VITE_GIBBERISH_ENDPOINT || "http://localhost:8007";
-  
+
   if (GIBBERISH_BASE === "mock") {
     return { status: "success", message: "Gibberish rules cleared (mock)" };
   }
-  
+
   return xfetch(`${GIBBERISH_BASE}/admin/rules`, {
     method: "DELETE",
     headers: { "x-api-key": GIBBERISH_ADMIN_KEY },
