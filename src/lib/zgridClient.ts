@@ -4,20 +4,38 @@ type FetchOptions = { method?: "GET" | "POST" | "DELETE"; headers?: Record<strin
 // Individual service endpoints - Uses local proxy in development to bypass CORS
 const IS_DEV = import.meta.env.DEV;
 
+console.log('🔧 Environment Debug - Updated:', {
+  'import.meta.env.DEV': import.meta.env.DEV,
+  'IS_DEV': IS_DEV,
+  'MODE': import.meta.env.MODE,
+  'NODE_ENV': import.meta.env.NODE_ENV,
+  'TIMESTAMP': new Date().toISOString()
+});
+
+console.log('🌍 Environment Variables:', {
+  'VITE_GIBBERISH_ENDPOINT': import.meta.env.VITE_GIBBERISH_ENDPOINT,
+  'VITE_SECRETS_ENDPOINT': import.meta.env.VITE_SECRETS_ENDPOINT,
+  'computed SECRETS': import.meta.env.VITE_SECRETS_ENDPOINT || (IS_DEV ? "/proxy/secrets" : "http://secrets-service-yavar-fixed.z-grid.svc.cluster.local:8005"),
+  'computed GIBBERISH': import.meta.env.VITE_GIBBERISH_ENDPOINT || (IS_DEV ? "/proxy/gibberish" : "http://gibberish-service-simple.z-grid.svc.cluster.local:8007")
+});
+
 const SERVICE_ENDPOINTS = {
-  PII: IS_DEV ? "/proxy/pii" : "http://57.152.84.241:8000",
-  TOXICITY: IS_DEV ? "/proxy/toxicity" : "http://localhost:8001",
-  JAILBREAK_ROBERTA: IS_DEV ? "/proxy/jailbreak-roberta" : "http://172.210.123.118:5005",
-  JAILBREAK_DISTILBERT: IS_DEV ? "/proxy/jailbreak-distilbert" : "http://4.156.246.0:8002",
-  BAN: IS_DEV ? "/proxy/ban" : "http://48.194.33.158:8004",
-  SECRETS: IS_DEV ? "/proxy/secrets" : "http://4.156.154.216:8005",
-  FORMAT: IS_DEV ? "/proxy/format" : "http://20.242.132.57:8006",
-  GIBBERISH: IS_DEV ? "/proxy/gibberish" : "http://51.8.74.156:8007",
+  PII: import.meta.env.VITE_PII_ENDPOINT || (IS_DEV ? "/proxy/pii" : "http://57.152.84.241:8000"),
+  TOXICITY: import.meta.env.VITE_TOXICITY_ENDPOINT || (IS_DEV ? "/proxy/toxicity" : "http://135.222.247.241:8001"),
+  JAILBREAK_ROBERTA: import.meta.env.VITE_JAIL_ENDPOINT || (IS_DEV ? "/proxy/jailbreak-roberta" : "http://172.210.123.118:5005"),
+  JAILBREAK_DISTILBERT: import.meta.env.VITE_JAIL_ENDPOINT || (IS_DEV ? "/proxy/jailbreak-distilbert" : "http://4.156.246.0:8002"),
+  BAN: import.meta.env.VITE_BAN_ENDPOINT || (IS_DEV ? "/proxy/ban" : "http://48.194.33.158:8004"),
+  SECRETS: import.meta.env.VITE_SECRETS_ENDPOINT || (IS_DEV ? "/proxy/secrets" : "http://secrets-service-yavar-fixed.z-grid.svc.cluster.local:8005"), // Dev: proxy, Prod: Internal ClusterIP
+  FORMAT: import.meta.env.VITE_FORMAT_ENDPOINT || (IS_DEV ? "/proxy/format" : "http://20.242.132.57:8006"),
+  GIBBERISH: import.meta.env.VITE_GIBBERISH_ENDPOINT || (IS_DEV ? "/proxy/gibberish" : "http://gibberish-service-simple.z-grid.svc.cluster.local:8007"), // Dev: proxy, Prod: Internal ClusterIP
+  LOGIC: import.meta.env.VITE_LOGIC_ENDPOINT || (IS_DEV ? "/proxy/logic" : "http://20.253.114.193:8008"),
+  BIAS: import.meta.env.VITE_BIAS_ENDPOINT || (IS_DEV ? "/proxy/bias" : "http://20.75.143.230:8012"),
+  POLICY: import.meta.env.VITE_POLICY_ENDPOINT || (IS_DEV ? "/proxy/policy" : "http://4.157.122.76:8003"),
 };
 
 // Content Moderation Gateway - Single endpoint for all services (if available)
 let GATEWAY_BASE = import.meta.env.VITE_GATEWAY_URL || "http://20.237.89.50:8010";
-let GATEWAY_KEY = import.meta.env.VITE_GATEWAY_API_KEY || "supersecret123";
+let GATEWAY_KEY = import.meta.env.VITE_GATEWAY_API_KEY || "simple-gateway-master-key";
 
 // API Keys for all services
 const API_KEY = "supersecret123";
@@ -63,7 +81,7 @@ export function getServiceConfig() {
 }
 
 // Single fetch with timeout + helpful errors
-async function xfetch(url: string, { method = "GET", headers = {}, body, timeoutMs = 12000 }: FetchOptions = {}) {
+async function xfetch(url: string, { method = "GET", headers = {}, body, timeoutMs = 25000 }: FetchOptions = {}) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
 
@@ -75,49 +93,13 @@ async function xfetch(url: string, { method = "GET", headers = {}, body, timeout
     location: window.location.href
   });
 
-  // For Lovable environments, try Supabase proxy first to bypass browser restrictions
-  const hostname = window.location.hostname;
-  console.log(`🔍 Hostname check: ${hostname}`);
-  console.log(`🔍 Contains lovableproject.com: ${hostname.includes('lovableproject.com')}`);
-  console.log(`🔍 Contains lovable.app: ${hostname.includes('lovable.app')}`);
-
-  if (hostname.includes('lovableproject.com') || hostname.includes('lovable.app')) {
-    console.log("🔄 Detected Lovable environment, trying Supabase proxy first...");
-    try {
-      return await xfetchProxy(url, { method, headers, body, timeoutMs });
-    } catch (proxyError) {
-      console.warn("⚠️ Proxy approach failed, falling back to direct fetch:", proxyError);
-      // Continue with direct fetch below
-    }
-  } else {
-    console.log("🏠 Not a Lovable environment, using direct fetch");
-  }
+  // Use direct fetch for all environments
+  console.log("🏠 Using direct fetch");
 
   try {
-    // Test CORS preflight for POST requests
-    if (method === "POST") {
-      console.log("🧪 Testing CORS preflight (OPTIONS) first...");
-      try {
-        const preflightResponse = await fetch(url, {
-          method: "OPTIONS",
-          headers: {
-            "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "content-type,x-api-key",
-            "Origin": window.location.origin
-          },
-          mode: "cors",
-          credentials: "omit",
-          cache: "no-store",
-        });
-        console.log(`🔍 Preflight result: ${preflightResponse.status}`, {
-          status: preflightResponse.status,
-          headers: Object.fromEntries(preflightResponse.headers.entries())
-        });
-      } catch (preflightError) {
-        console.error("❌ CORS preflight failed:", preflightError);
-        throw new Error(`CORS preflight failed: ${preflightError.message}. The server may not support OPTIONS requests or CORS is misconfigured.`);
-      }
-    }
+    // Skip CORS preflight test and go directly to the request
+    // Many services don't support OPTIONS but still work with proper CORS headers
+    console.log(`🚀 Making ${method} request directly (skipping preflight test)`);
 
     // Add cache-busting timestamp to force fresh request
     const cacheBuster = `?t=${Date.now()}&r=${Math.random()}`;
@@ -416,55 +398,56 @@ export async function validateContent(text: string, options: {
 
 export async function validatePII(text: string, entities?: string[], return_spans?: boolean) {
   console.log('validatePII called with:', { text, entities, return_spans });
-  console.log('Using PII service at:', SERVICE_ENDPOINTS.PII);
 
-  // Try direct service first, then fall back to mock
+  // Use gateway instead of proxy for consistent routing
+  const requestBody = {
+    text,
+    check_pii: true,
+    check_toxicity: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    check_bias: false,
+    action_on_fail: "refrain",
+    return_spans: return_spans !== undefined ? return_spans : true,
+    entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "US_SSN", "PERSON", "LOCATION", "IN_AADHAAR", "IN_PAN"]
+  };
+
+  console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
+  console.log('Gateway Request Body:', requestBody);
+
   try {
-    const result = await xfetch(`${SERVICE_ENDPOINTS.PII}/detect`, {
+    const result = await xfetch(`${GATEWAY_BASE}/validate`, {
       method: "POST",
-      headers: { "X-API-Key": API_KEY },
-      body: {
-        text,
-        entities: entities || ["EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "US_SSN", "PERSON", "LOCATION", "IN_AADHAAR", "IN_PAN"],
-        return_spans: return_spans !== undefined ? return_spans : true
-      }
+      headers: { "X-API-Key": GATEWAY_KEY },
+      body: requestBody
     });
 
-    console.log('PII Service Response:', result);
+    console.log('PII Service Response via Gateway:', result);
+
+    // Extract just the PII service result from gateway response
+    if (result.results && result.results.pii) {
+      console.log('PII Gateway Response:', result.results.pii);
+      return result.results.pii;
+    }
+
+    // Return the full response if no serviceResults (some gateway implementations)
     return result;
   } catch (error) {
-    console.error('PII Service Error, falling back to mock:', error);
+    console.error('PII Service Error:', error);
 
-    // Fall back to mock response
-    console.log('Using mock PII response');
-    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
-    const phoneRegex = /\b\d{3}-\d{3}-\d{4}\b|\b\d{10}\b/;
-    const ssnRegex = /\b\d{3}-\d{2}-\d{4}\b/;
-    const creditCardRegex = /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/;
-
-    const hasPII = emailRegex.test(text) ||
-      phoneRegex.test(text) ||
-      ssnRegex.test(text) ||
-      creditCardRegex.test(text) ||
-      text.toLowerCase().includes("john doe") ||
-      text.toLowerCase().includes("new york");
-
-    return {
-      status: hasPII ? "flagged" : "pass",
-      clean_text: hasPII ? text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}/g, "[EMAIL]")
-        .replace(/\b\d{3}-\d{3}-\d{4}\b|\b\d{10}\b/g, "[PHONE]")
-        .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN]")
-        .replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, "[CREDIT_CARD]") : text,
-      flagged: hasPII ? [{ type: "pii", score: 0.9 }] : [],
-      reasons: hasPII ? ["PII detected (mock)"] : ["No PII detected (mock)"],
-      spans: []
-    };
+    // Re-throw the error to let the UI handle it properly instead of falling back to mock
+    throw new Error(`PII service unavailable: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 export async function validateTox(text: string, return_spans?: boolean) {
   console.log('validateTox called with:', { text, return_spans });
-  console.log('Using Toxicity service at:', SERVICE_ENDPOINTS.TOXICITY);
+
+  // Use actual K8s service endpoint directly (skip problematic proxy)
+  const toxicityEndpoint = `${SERVICE_ENDPOINTS.TOXICITY}/analyze`;
+  console.log('Using Toxicity endpoint:', toxicityEndpoint);
 
   // If endpoint is "mock", return mock response immediately
   if (SERVICE_ENDPOINTS.TOXICITY === "mock") {
@@ -483,21 +466,70 @@ export async function validateTox(text: string, return_spans?: boolean) {
     };
   }
 
-  // Try direct service first, then fall back to gateway
+  // Try service first, then fall back to mock
   try {
-    const result = await xfetch(`${SERVICE_ENDPOINTS.TOXICITY}/detect`, {
+    // The toxicity service expects query parameter, not JSON body
+    const encodedText = encodeURIComponent(text);
+    const result = await xfetch(`${toxicityEndpoint}?text=${encodedText}`, {
       method: "POST",
-      headers: { "X-API-Key": API_KEY },
-      body: {
-        text,
-        return_spans: return_spans !== undefined ? return_spans : true
-      }
+      headers: { "X-API-Key": API_KEY }, // Use direct auth for all environments
+      timeoutMs: IS_DEV ? 5000 : 45000 // Fast timeout in dev (5s) to quickly fall back to gateway
     });
 
     console.log('Toxicity Service Response:', result);
-    return result;
+
+    // Transform service response to expected UI format
+    const toxicityScore = result.scores?.toxicity || 0;
+    const insultScore = result.scores?.insult || 0;
+    const maxScore = Math.max(toxicityScore, insultScore);
+    const isFlagged = maxScore > 0.5; // 50% threshold
+
+    // Apply profanity masking if content is flagged
+    let cleanText = text;
+    const spans = [];
+
+    if (isFlagged && result.profanity && result.profanity.length > 0) {
+      // Mask profanity words with asterisks
+      result.profanity.forEach((profane: any) => {
+        const word = profane.token;
+        const start = profane.start;
+        const end = profane.end;
+        const maskedWord = '*'.repeat(word.length);
+
+        // Replace the profane word with masked version
+        cleanText = cleanText.substring(0, start) + maskedWord + cleanText.substring(end);
+
+        // Add span information for UI highlighting
+        spans.push({
+          start: start,
+          end: end,
+          type: 'profanity',
+          score: profane.severity === 'high' ? 0.9 : profane.severity === 'medium' ? 0.7 : 0.5,
+          text: word,
+          masked_text: maskedWord
+        });
+      });
+    }
+
+    const transformedResult = {
+      status: isFlagged ? 'flagged' : 'pass',
+      clean_text: cleanText,
+      flagged: isFlagged ? [{
+        type: 'toxicity',
+        score: maxScore
+      }] : [],
+      reasons: isFlagged ? [
+        `Toxic content detected (toxicity: ${Math.round(toxicityScore * 100)}%, insult: ${Math.round(insultScore * 100)}%)`
+      ] : [`No toxicity detected (max: ${Math.round(maxScore * 100)}%)`],
+      spans: spans,
+      // Include original service data for debugging
+      _serviceData: result
+    };
+
+    console.log('Transformed Toxicity Response:', transformedResult);
+    return transformedResult;
   } catch (error) {
-    console.error('Toxicity Service Error, falling back to gateway:', error);
+    console.error('Toxicity Service Error, falling back to mock:', error);
 
     // Fall back to gateway
     try {
@@ -542,23 +574,89 @@ export async function validateTox(text: string, return_spans?: boolean) {
 export async function validateJailbreak(text: string, return_spans?: boolean, useDistilBERT: boolean = false) {
   console.log('validateJailbreak called with:', { text, return_spans, useDistilBERT });
 
-  // Choose between RoBERTa (default) or DistilBERT model
-  const endpoint = useDistilBERT ? SERVICE_ENDPOINTS.JAILBREAK_DISTILBERT : SERVICE_ENDPOINTS.JAILBREAK_ROBERTA;
-  console.log('Using Jailbreak service at:', endpoint);
+  // Use gateway instead of proxy for consistent routing
+  const requestBody = {
+    text,
+    check_pii: false,
+    check_toxicity: false,
+    check_secrets: false,
+    check_jailbreak: true,
+    check_format: false,
+    check_gibberish: false,
+    check_bias: false,
+    action_on_fail: "refrain",
+    return_spans: return_spans !== undefined ? return_spans : true
+  };
 
-  // Try direct service first, then fall back to mock
+  console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
+  console.log('Gateway Request Body:', requestBody);
+
   try {
-    const result = await xfetch(`${endpoint}/detect`, {
+    const result = await xfetch(`${GATEWAY_BASE}/validate`, {
       method: "POST",
-      headers: { "X-API-Key": API_KEY },
-      body: {
-        text,
-        return_spans: return_spans !== undefined ? return_spans : true
-      }
+      headers: { "X-API-Key": GATEWAY_KEY },
+      body: requestBody
     });
 
-    console.log('Jailbreak Service Response:', result);
-    return result;
+    console.log('Jailbreak Service Response via Gateway:', result);
+
+    // Extract just the jailbreak service result from gateway response
+    let jailbreakResult = result;
+    if (result.results && result.results.jailbreak) {
+      console.log('Jailbreak Gateway Response:', result.results.jailbreak);
+      jailbreakResult = result.results.jailbreak;
+    }
+
+    // Apply UI-level threshold logic to overcome overly aggressive backend heuristics
+    const UI_THRESHOLD = 0.7; // More reasonable threshold than backend's 0.95
+    const confidence = jailbreakResult.confidence || 0;
+    const reasoning = jailbreakResult.reasoning || '';
+    const heuristicAdjustment = jailbreakResult.heuristic_adjustment || 0;
+
+    // Check if educational context was overly aggressive (-0.9 penalty)
+    const hasEducationalPenalty = reasoning.includes('educational_context') && heuristicAdjustment <= -0.8;
+
+    // Apply UI logic: If educational penalty is too aggressive and confidence is high, still flag as jailbreak
+    let shouldFlag = jailbreakResult.prediction === 'jailbreak';
+    let effectiveScore = confidence;
+
+    // Override backend prediction if educational context is too aggressive
+    if (hasEducationalPenalty && confidence >= UI_THRESHOLD) {
+      shouldFlag = true;
+      effectiveScore = Math.max(confidence, UI_THRESHOLD);
+    }
+    // Also apply our own threshold to cases where backend says "benign" but confidence is high
+    else if (jailbreakResult.prediction === 'benign' && confidence >= UI_THRESHOLD) {
+      shouldFlag = true;
+      effectiveScore = confidence;
+    }
+
+    // Log detailed information to console for debugging
+    console.log(`Jailbreak Detection Details: ${Math.round(confidence * 100)}%, reasoning: ${jailbreakResult.reasoning || 'pattern detected'}${hasEducationalPenalty ? ' [UI override: educational penalty too aggressive]' : ''}`);
+
+    // Transform service response to expected UI format
+    const transformedResult = {
+      status: shouldFlag ? 'flagged' : 'pass',
+      clean_text: shouldFlag ? '' : text,
+      flagged: shouldFlag ? [{
+        type: 'jailbreak',
+        score: effectiveScore
+      }] : [],
+      reasons: shouldFlag ? [
+        `Jailbreak attempt detected`
+      ] : [`No jailbreak detected (confidence: ${Math.round(confidence * 100)}%)`],
+      spans: [],
+      // Include original service data for debugging
+      _serviceData: {
+        ...jailbreakResult,
+        uiThreshold: UI_THRESHOLD,
+        uiOverride: shouldFlag && jailbreakResult.prediction !== 'jailbreak',
+        educationalPenaltyCompensated: hasEducationalPenalty
+      }
+    };
+
+    console.log('Transformed Jailbreak Response:', transformedResult);
+    return transformedResult;
   } catch (error) {
     console.error('Jailbreak Service Error, falling back to mock:', error);
 
@@ -567,7 +665,7 @@ export async function validateJailbreak(text: string, return_spans?: boolean, us
     const jailbreakKeywords = [
       "ignore instructions", "disregard", "bypass", "override", "system prompt",
       "jailbreak", "roleplay", "hypothetical", "pretend", "simulate",
-      "developer mode", "administrator", "override safety", "ignore policy"
+      "developer mode", "administrator", "override safety", "ignore policy", "hack"
     ];
 
     const hasJailbreak = jailbreakKeywords.some(keyword =>
@@ -626,39 +724,269 @@ export async function validateBan(text: string, return_spans?: boolean) {
   }
 }
 
+export async function validateBias(text: string, return_spans?: boolean) {
+  console.log('validateBias called with:', { text, return_spans });
+
+  // Use proxy in development mode to avoid mixed content issues
+  const biasEndpoint = IS_DEV ? '/proxy/bias/validate' : `${SERVICE_ENDPOINTS.BIAS}/validate`;
+  console.log('Using Bias endpoint:', biasEndpoint);
+
+  // If endpoint is "mock", return mock response immediately
+  if (SERVICE_ENDPOINTS.BIAS === "mock") {
+    console.log('Using mock bias response');
+    const biasKeywords = [
+      "women are", "men are", "all women", "all men", "genders are",
+      "race", "racial", "racist", "racism", "discrimination",
+      "religion", "religious", "faith", "muslim", "christian", "jewish", "hindu",
+      "age", "old people", "young people", "elderly", "teenagers", "kids",
+      "sexual orientation", "gay", "lesbian", "bisexual", "transgender", "lgbt",
+      "nationality", "country", "american", "asian", "african", "european",
+      "disability", "disabled", "handicapped", "wheelchair"
+    ];
+
+    const hasBias = biasKeywords.some(keyword =>
+      text.toLowerCase().includes(keyword.toLowerCase())
+    ) || text.toLowerCase().includes("stereotype");
+
+    return {
+      status: hasBias ? "flagged" : "pass",
+      clean_text: hasBias ? "" : text,
+      flagged: hasBias ? [{ type: "bias", score: 0.85 }] : [],
+      reasons: hasBias ? ["Bias detected (mock)"] : ["No bias detected (mock)"],
+      spans: []
+    };
+  }
+
+  // Try service first, then fall back to mock
+  try {
+    const result = await xfetch(biasEndpoint, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY }, // Use direct auth for all environments
+      body: {
+        text,
+        context: "Z-Grid UI Bias Detection",
+        analysis_type: "comprehensive"
+      },
+      timeoutMs: 60000 // 60 second timeout for DeBERTa model loading and inference
+    });
+
+    console.log('Bias Service Response:', result);
+
+    // Transform service response to expected UI format
+    const biasScore = result.bias_score || result.confidence || 0;
+    const isFlagged = biasScore > 0.6; // 60% threshold for bias
+
+    // Apply bias masking if content is flagged
+    let cleanText = text;
+    const spans = [];
+
+    if (isFlagged && result.biased_phrases && result.biased_phrases.length > 0) {
+      // Mask biased phrases with asterisks
+      result.biased_phrases.forEach((biased: any) => {
+        const phrase = biased.text || biased.phrase || biased.word;
+        const start = biased.start || text.indexOf(phrase);
+        const end = biased.end || start + phrase.length;
+        const maskedPhrase = '[BIASED_CONTENT]';
+
+        // Replace the biased phrase with masked version
+        cleanText = cleanText.substring(0, start) + maskedPhrase + cleanText.substring(end);
+
+        // Add span information for UI highlighting
+        spans.push({
+          start: start,
+          end: end,
+          type: biased.category || 'bias',
+          score: biased.score || biasScore,
+          text: phrase,
+          masked_text: maskedPhrase
+        });
+      });
+    }
+
+    const transformedResult = {
+      status: isFlagged ? 'flagged' : 'pass',
+      clean_text: cleanText,
+      flagged: isFlagged ? [{
+        type: 'bias',
+        score: biasScore
+      }] : [],
+      reasons: isFlagged ? [
+        `Biased content detected (confidence: ${Math.round(biasScore * 100)}%, categories: ${(result.categories || []).join(', ') || 'general'})`
+      ] : [`No bias detected (max score: ${Math.round(biasScore * 100)}%)`],
+      spans: spans,
+      // Include original service data for debugging
+      _serviceData: result
+    };
+
+    console.log('Transformed Bias Response:', transformedResult);
+    return transformedResult;
+  } catch (error) {
+    console.error('Bias Service Error, falling back to mock:', error);
+
+    // Fall back to gateway
+    try {
+      const result = await validateContent(text, {
+        check_bias: true,
+        check_toxicity: false,
+        check_pii: false,
+        check_secrets: false,
+        check_jailbreak: false,
+        check_format: false,
+        check_gibberish: false,
+        return_spans: return_spans !== undefined ? return_spans : true,
+        action_on_fail: "refrain"
+      });
+
+      // Extract just the bias service result from gateway response
+      if (result.serviceResults && result.serviceResults.bias) {
+        console.log('Bias Gateway Response:', result.serviceResults.bias);
+        return result.serviceResults.bias;
+      }
+
+      // Fallback to mock response if gateway doesn't have bias service
+      console.log('Gateway does not have bias service, returning mock response');
+      const biasKeywords = [
+        "women are", "men are", "all women", "all men", "genders are",
+        "race", "racial", "racist", "racism", "discrimination",
+        "religion", "religious", "faith", "muslim", "christian", "jewish", "hindu",
+        "age", "old people", "young people", "elderly", "teenagers", "kids",
+        "sexual orientation", "gay", "lesbian", "bisexual", "transgender", "lgbt",
+        "nationality", "country", "american", "asian", "african", "european",
+        "disability", "disabled", "handicapped", "wheelchair"
+      ];
+
+      const hasBias = biasKeywords.some(keyword =>
+        text.toLowerCase().includes(keyword.toLowerCase())
+      ) || text.toLowerCase().includes("stereotype");
+
+      return {
+        status: hasBias ? "flagged" : "pass",
+        clean_text: hasBias ? "" : text,
+        flagged: hasBias ? [{ type: "bias", score: 0.85 }] : [],
+        reasons: hasBias ? ["Bias detected (fallback)"] : ["No bias detected (fallback)"],
+        spans: []
+      };
+    } catch (gatewayError) {
+      console.error('Gateway also failed:', gatewayError);
+      throw new Error(`Both bias service and gateway failed. Service error: ${error.message}, Gateway error: ${gatewayError.message}`);
+    }
+  }
+}
+
 export async function validatePolicy(text: string, return_spans?: boolean) {
   console.log('validatePolicy called with:', { text, return_spans });
 
-  // Policy service uses the gateway for now (LlamaGuard model)
-  return validateContent(text, {
-    check_bias: true,
-    check_toxicity: false,
-    check_pii: false,
-    check_secrets: false,
-    check_jailbreak: false,
-    check_format: false,
-    check_gibberish: false,
-    return_spans: return_spans !== undefined ? return_spans : true,
-    action_on_fail: "refrain"
-  });
+  // Try direct Policy service first
+  try {
+    const policyEndpoint = IS_DEV ? '/proxy/policy/policy/check' : `${SERVICE_ENDPOINTS.POLICY}/policy/check`;
+    console.log('Using Policy endpoint:', policyEndpoint);
+
+    const result = await xfetch(policyEndpoint, {
+      method: "POST",
+      headers: {
+        "X-API-Key": IS_DEV ? "simple-gateway-master-key" : (import.meta.env.VITE_POLICY_ADMIN_KEY || "policyprivileged123"),
+        "Content-Type": "application/json"
+      },
+      body: {
+        text: text,
+        user_id: "gateway"
+      },
+      timeoutMs: 200000 // 200 second timeout for LlamaGuard-7b model loading and inference
+    });
+
+    console.log('Direct Policy Service Response:', result);
+
+    // Convert Policy service response to expected format
+    const isSafe = result.status === "pass";
+    return {
+      status: result.status,
+      clean_text: result.clean_text || text,
+      blocked_categories: isSafe ? [] : ["policy_violation"],
+      reasons: result.reasons || [],
+      flagged: result.flagged || [],
+      steps: result.steps || []
+    };
+  } catch (error) {
+    console.error('Direct Policy Service Error, falling back to gateway:', error);
+
+    // Fall back to gateway
+    try {
+      const result = await validateContent(text, {
+        check_bias: false,
+        check_toxicity: false,
+        check_pii: false,
+        check_secrets: false,
+        check_jailbreak: false,
+        check_format: false,
+        check_gibberish: false,
+        return_spans: return_spans !== undefined ? return_spans : true,
+        action_on_fail: "refrain"
+      });
+
+      console.log('Gateway Policy Response:', result);
+      return result;
+    } catch (gatewayError) {
+      console.error('Gateway Policy Error, falling back to mock:', gatewayError);
+
+      // Final fallback to mock response
+      console.log('Using mock policy response');
+      const policyKeywords = [
+        "hack", "bypass", "ignore instructions", "system prompt", "jailbreak",
+        "harmful", "illegal", "violence", "hate", "discrimination"
+      ];
+
+      const hasPolicyViolation = policyKeywords.some(keyword =>
+        text.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      return {
+        status: hasPolicyViolation ? "blocked" : "pass",
+        clean_text: hasPolicyViolation ? "" : text,
+        blocked_categories: hasPolicyViolation ? ["policy_violation"] : [],
+        reasons: hasPolicyViolation ? ["Policy violation detected (mock)"] : ["No policy violation detected (mock)"],
+        flagged: hasPolicyViolation ? [{ type: "policy", score: 0.8 }] : [],
+        spans: []
+      };
+    }
+  }
 }
 
 export async function validateSecrets(text: string, return_spans?: boolean) {
   console.log('validateSecrets called with:', { text, return_spans });
-  console.log('Using Secrets service at:', SERVICE_ENDPOINTS.SECRETS);
 
-  // Try direct service first, then fall back to gateway
+  // Use gateway instead of direct service call
+  const requestBody = {
+    text,
+    check_secrets: true,
+    check_pii: false,
+    check_toxicity: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    check_bias: false,
+    action_on_fail: "refrain",
+    return_spans: return_spans !== undefined ? return_spans : true
+  };
+
+  console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
+  console.log('Gateway Request Body:', requestBody);
+
   try {
-    const result = await xfetch(`${SERVICE_ENDPOINTS.SECRETS}/detect`, {
+    const result = await xfetch(`${GATEWAY_BASE}/validate`, {
       method: "POST",
-      headers: { "X-API-Key": API_KEY },
-      body: {
-        text,
-        return_spans: return_spans !== undefined ? return_spans : true
-      }
+      headers: { "X-API-Key": GATEWAY_KEY },
+      body: requestBody
     });
 
-    console.log('Secrets Service Response:', result);
+    console.log('Secrets Service Response via Gateway:', result);
+
+    // Extract just the secrets service result from gateway response
+    if (result.results && result.results.secrets) {
+      console.log('Secrets Gateway Response:', result.results.secrets);
+      return result.results.secrets;
+    }
+
+    // Return the full response if no serviceResults (some gateway implementations)
     return result;
   } catch (error) {
     console.error('Secrets Service Error, falling back to mock:', error);
@@ -684,11 +1012,44 @@ export async function validateSecrets(text: string, return_spans?: boolean) {
 
 export async function validateFormat(text: string, expressions?: string[], return_spans?: boolean) {
   console.log('validateFormat called with:', { text, expressions, return_spans });
-  console.log('Using Format service at:', SERVICE_ENDPOINTS.FORMAT);
 
-  // Try direct service first, then fall back to mock
+  // Try gateway first, then fall back to direct service, then mock
   try {
-    const result = await xfetch(`${SERVICE_ENDPOINTS.FORMAT}/validate`, {
+    const result = await validateContent(text, {
+      check_format: true,
+      check_pii: false,
+      check_toxicity: false,
+      check_jailbreak: false,
+      check_secrets: false,
+      check_gibberish: false,
+      check_bias: false,
+      return_spans: return_spans !== undefined ? return_spans : true,
+      action_on_fail: "refrain"
+    });
+
+    // Extract just the format service result from gateway response
+    if (result.serviceResults && result.serviceResults.format) {
+      console.log('Format Gateway Response:', result.serviceResults.format);
+
+      const formatResult = result.serviceResults.format;
+      return {
+        status: formatResult.status === 'pass' ? 'pass' : 'flagged',
+        clean_text: formatResult.clean_text || text,
+        flagged: formatResult.status === 'pass' ? [] : [{
+          type: 'format',
+          score: 0.7
+        }],
+        reasons: formatResult.reasons || [formatResult.status === 'pass' ? 'Format validation passed' : 'Format validation failed'],
+        spans: formatResult.spans || [],
+        // Include original service data for debugging
+        _serviceData: formatResult
+      };
+    }
+
+    // Fallback to mock response if gateway doesn't have format service
+    console.log('Gateway does not have format service, trying direct service...');
+
+    const directResult = await xfetch(`${SERVICE_ENDPOINTS.FORMAT}/validate`, {
       method: "POST",
       headers: { "X-API-Key": API_KEY },
       body: {
@@ -698,8 +1059,24 @@ export async function validateFormat(text: string, expressions?: string[], retur
       }
     });
 
-    console.log('Format Service Response:', result);
-    return result;
+    console.log('Direct Format Service Response:', directResult);
+
+    // Transform service response to expected UI format
+    const transformedResult = {
+      status: directResult.status === 'pass' ? 'pass' : 'flagged',
+      clean_text: directResult.clean_text || text,
+      flagged: directResult.status === 'pass' ? [] : [{
+        type: 'format',
+        score: 0.7
+      }],
+      reasons: directResult.reasons || [directResult.status === 'pass' ? 'Format validation passed' : 'Format validation failed'],
+      spans: directResult.spans || [],
+      // Include original service data for debugging
+      _serviceData: directResult
+    };
+
+    console.log('Transformed Format Response:', transformedResult);
+    return transformedResult;
   } catch (error) {
     console.error('Format Service Error, falling back to mock:', error);
 
@@ -726,24 +1103,112 @@ export async function validateFormat(text: string, expressions?: string[], retur
   }
 }
 
-export async function validateGibberish(text: string, threshold?: number, min_length?: number, return_spans?: boolean) {
-  console.log('validateGibberish called with:', { text, threshold, min_length, return_spans });
-  console.log('Using Gibberish service at:', SERVICE_ENDPOINTS.GIBBERISH);
+export async function validateLogic(text: string, threshold?: number, return_spans?: boolean) {
+  console.log('validateLogic called with:', { text, threshold, return_spans });
 
-  // Try direct service first, then fall back to mock
+  // Use gateway instead of direct service call
+  const requestBody = {
+    text,
+    check_logic: true,
+    check_pii: false,
+    check_toxicity: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_gibberish: false,
+    check_bias: false,
+    action_on_fail: "refrain",
+    return_spans: return_spans !== undefined ? return_spans : true,
+    logic_threshold: threshold || 0.7
+  };
+
+  console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
+  console.log('Gateway Request Body:', requestBody);
+
   try {
-    const result = await xfetch(`${SERVICE_ENDPOINTS.GIBBERISH}/detect`, {
+    const result = await xfetch(`${GATEWAY_BASE}/validate`, {
       method: "POST",
-      headers: { "X-API-Key": API_KEY },
-      body: {
-        text,
-        threshold: threshold || 0.8,
-        min_length: min_length || 10,
-        return_spans: return_spans !== undefined ? return_spans : true
-      }
+      headers: { "X-API-Key": GATEWAY_KEY },
+      body: requestBody
     });
 
-    console.log('Gibberish Service Response:', result);
+    console.log('Logic Service Response via Gateway:', result);
+
+    // Extract just the logic service result from gateway response
+    if (result.results && result.results.logic) {
+      console.log('Logic Gateway Response:', result.results.logic);
+      return result.results.logic;
+    }
+
+    // Return the full response if no serviceResults (some gateway implementations)
+    return result;
+  } catch (error) {
+    console.error('Logic Service Error, falling back to mock:', error);
+
+    // Fall back to mock response
+    console.log('Using mock logic response');
+
+    // Simple heuristics to detect logical contradictions
+    const contradictionPatterns = [
+      /all.*no.*all/i,
+      /always.*never/i,
+      /can.*cannot.*can/i,
+      /will.*won't.*will/i,
+      /good.*bad.*good/i,
+      /true.*false.*true/i
+    ];
+
+    const hasContradiction = contradictionPatterns.some(pattern => pattern.test(text));
+
+    return {
+      status: hasContradiction ? "flagged" : "pass",
+      clean_text: text, // Logic service doesn't mask content, just analyzes
+      flagged: hasContradiction ? [{ type: 'logic', score: 0.7 }] : [],
+      reasons: hasContradiction ? ["Logical contradiction detected (mock)"] : ["No logical issues detected (mock)"],
+      spans: []
+    };
+  }
+}
+
+export async function validateGibberish(text: string, threshold?: number, min_length?: number, return_spans?: boolean) {
+  console.log('validateGibberish called with:', { text, threshold, min_length, return_spans });
+
+  // Use gateway instead of direct service call
+  const requestBody = {
+    text,
+    check_gibberish: true,
+    check_pii: false,
+    check_toxicity: false,
+    check_secrets: false,
+    check_jailbreak: false,
+    check_format: false,
+    check_logic: false,
+    check_bias: false,
+    action_on_fail: "refrain",
+    return_spans: return_spans !== undefined ? return_spans : true,
+    gibberish_threshold: threshold || 0.8,
+    gibberish_min_length: min_length || 10
+  };
+
+  console.log('Gateway Request URL:', `${GATEWAY_BASE}/validate`);
+  console.log('Gateway Request Body:', requestBody);
+
+  try {
+    const result = await xfetch(`${GATEWAY_BASE}/validate`, {
+      method: "POST",
+      headers: { "X-API-Key": GATEWAY_KEY },
+      body: requestBody
+    });
+
+    console.log('Gibberish Service Response via Gateway:', result);
+
+    // Extract just the gibberish service result from gateway response
+    if (result.results && result.results.gibberish) {
+      console.log('Gibberish Gateway Response:', result.results.gibberish);
+      return result.results.gibberish;
+    }
+
+    // Return the full response if no serviceResults (some gateway implementations)
     return result;
   } catch (error) {
     console.error('Gibberish Service Error, falling back to mock:', error);
@@ -752,8 +1217,6 @@ export async function validateGibberish(text: string, threshold?: number, min_le
     console.log('Using mock gibberish response');
 
     // Simple heuristics to detect gibberish
-
-    // Check for repetitive characters, random character sequences, or unusual patterns
     const hasRepeatingChars = /(.)\1{3,}/.test(text); // 4+ same chars in a row
     const hasManyConsonants = text.match(/[^aeiou\s]{4,}/i) !== null; // 4+ consecutive consonants
     const isTooShort = text.length < (min_length || 10);
